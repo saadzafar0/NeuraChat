@@ -1,0 +1,131 @@
+erDiagram
+    %% CORE USER & AUTH
+    User {
+        uuid id PK "Supabase Auth ID"
+        string email
+        string username 
+        string fullName
+        string password 
+        string avatar_url
+        string status_message
+        timestamp last_seen
+        timestamp created_at
+    }
+
+    %% LINKING USERS TO CHATS (Crucial missing piece)
+    ChatParticipant {
+        uuid chat_id FK
+        uuid user_id FK
+        string role "admin | member"
+        timestamp joined_at
+    }
+
+    Notification {
+        uuid id PK
+        uuid user_id FK
+        string title
+        string content
+        string type "message | call | system"
+        boolean is_read
+        timestamp created_at
+    }
+
+    %% SECURITY (Signal Protocol)
+    EncryptionKey {
+        uuid id PK
+        uuid user_id FK
+        text identity_key "Public Identity Key"
+        text signed_pre_key
+        jsonb one_time_pre_keys "Batch of keys"
+        timestamp updated_at
+    }
+
+    %% CHAT & MESSAGING
+    Chat {
+        uuid id PK
+        string type "private | group"
+        string name "Group Name"
+        timestamp created_at
+    }
+
+    Message {
+        uuid id PK
+        uuid chat_id FK
+        uuid sender_id FK
+        text content "Encrypted payload"
+        string type "text | media | system"
+        string status "sent  delivered | read"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    MediaFile {
+        uuid id PK
+        uuid message_id FK
+        string file_url "Supabase Storage Path"
+        string file_type
+        int file_size
+        timestamp uploaded_at
+    }
+
+    %% AI FEATURES (Enhancement & Summarization)
+
+
+
+    %% DEDICATED AI AGENT
+    AIAgentSession {
+        uuid id PK
+        uuid user_id FK
+        string title
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    AIInteraction {
+        uuid id PK
+        uuid session_id FK
+        text user_query
+        text ai_response
+        string intent "info | writing | productivity"
+        timestamp created_at
+    }
+
+    %% CALLING & WEBRTC
+    Call {
+        uuid id PK
+        uuid chat_id FK
+        uuid initiator_id FK
+        string status "active | ended"
+        string type "audio | video"
+        timestamp start_time
+        timestamp end_time
+    }
+
+    CallParticipant {
+        uuid call_id FK
+        uuid user_id FK
+        string status "connecting | connected | left | rejected"
+        timestamp joined_at
+    }
+
+    CallLog {
+        uuid id PK
+        uuid call_id FK
+        string quality_rating
+        int duration_seconds
+        timestamp created_at
+    }
+
+    %% RELATIONSHIPS
+    User ||--o{ Notification : receives
+    User ||--o{ EncryptionKey : owns
+    Chat ||--o{ Message : contains
+    User ||--o{ Message : sends
+    Message ||--o{ MediaFile : attachments
+    User ||--o{ AIAgentSession : initiates
+    AIAgentSession ||--o{ AIInteraction : logs
+    Chat ||--o{ Call : hosts
+    Call ||--o{ CallParticipant : involves
+    Call ||--o| CallLog : records
+    User ||--o{ ChatParticipant : joins
+    Chat ||--o{ ChatParticipant : has
