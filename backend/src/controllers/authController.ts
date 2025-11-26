@@ -9,6 +9,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const supabase = getSupabaseClient();
     const { email, password, username, full_name } = req.body;
 
+    console.log('Registering user:', email);
+
     // Create auth user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -17,38 +19,44 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         data: {
           username,
           full_name,
-        }
+        },
+        emailRedirectTo: undefined
       }
     });
 
+    console.log('Supabase Auth response:', { user: authData?.user?.id, error: authError?.message });
+
     if (authError) {
+      console.error('Auth error:', authError);
       res.status(400).json({ error: authError.message });
       return;
     }
 
     if (!authData.user) {
+      console.error('No user data returned');
       res.status(400).json({ error: 'User creation failed' });
       return;
     }
 
-    // Create user profile
+    // REMOVE the existing user check and insert
+    // The trigger already created the user, so just fetch it
+    console.log('Fetching user profile created by trigger...');
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .insert({
-        id: authData.user.id,
-        email,
-        username,
-        full_name,
-      })
-      .select()
+      .select('*')
+      .eq('id', authData.user.id)
       .single();
 
-    if (userError) {
-      res.status(400).json({ error: userError.message });
+    console.log('User profile fetched:', { success: !!userData, error: userError?.message });
+
+    if (userError || !userData) {
+      console.error('User profile error:', userError);
+      res.status(400).json({ error: 'Failed to create user profile' });
       return;
     }
 
     // Generate JWT token
+    console.log('Generating JWT token...');
     const token = jwt.sign(
       { userId: authData.user.id },
       process.env.JWT_SECRET!,
@@ -63,6 +71,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    console.log('Sending success response...');
     res.status(201).json({
       message: 'User registered successfully',
       user: userData,
@@ -72,14 +81,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 // Login user
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
     const { email, password } = req.body;
-    console.log('Login attempt:', email);
-    
+
     // Authenticate with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -87,8 +94,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (error) {
-      console.error('Supabase Auth Error:', error.message, error);
-      res.status(401).json({ error: 'Invalid credentials', details: error.message });
+      res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
