@@ -1,121 +1,158 @@
-CREATE TABLE public.ai_agent_sessions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  title text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT ai_agent_sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT ai_agent_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.ai_interactions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  session_id uuid NOT NULL,
-  user_query text NOT NULL,
-  ai_response text NOT NULL,
-  intent text CHECK (intent = ANY (ARRAY['info'::text, 'writing'::text, 'productivity'::text])),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT ai_interactions_pkey PRIMARY KEY (id),
-  CONSTRAINT ai_interactions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.ai_agent_sessions(id)
-);
-CREATE TABLE public.call_logs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  call_id uuid NOT NULL UNIQUE,
-  quality_rating text,
-  duration_seconds integer,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT call_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT call_logs_call_id_fkey FOREIGN KEY (call_id) REFERENCES public.calls(id)
-);
-CREATE TABLE public.call_participants (
-  call_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  status text DEFAULT 'connecting'::text CHECK (status = ANY (ARRAY['connecting'::text, 'connected'::text, 'left'::text, 'rejected'::text])),
-  joined_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT call_participants_pkey PRIMARY KEY (call_id, user_id),
-  CONSTRAINT call_participants_call_id_fkey FOREIGN KEY (call_id) REFERENCES public.calls(id),
-  CONSTRAINT call_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.calls (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  chat_id uuid NOT NULL,
-  initiator_id uuid NOT NULL,
-  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'ended'::text])),
-  type text DEFAULT 'audio'::text CHECK (type = ANY (ARRAY['audio'::text, 'video'::text])),
-  start_time timestamp with time zone DEFAULT now(),
-  end_time timestamp with time zone,
-  CONSTRAINT calls_pkey PRIMARY KEY (id),
-  CONSTRAINT calls_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
-  CONSTRAINT calls_initiator_id_fkey FOREIGN KEY (initiator_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.chat_participants (
-  chat_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  role text DEFAULT 'member'::text CHECK (role = ANY (ARRAY['admin'::text, 'member'::text])),
-  joined_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT chat_participants_pkey PRIMARY KEY (chat_id, user_id),
-  CONSTRAINT chat_participants_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
-  CONSTRAINT chat_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.chats (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  type text NOT NULL CHECK (type = ANY (ARRAY['private'::text, 'group'::text])),
-  name text,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT chats_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.encryption_keys (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  identity_key text NOT NULL,
-  signed_pre_key text NOT NULL,
-  one_time_pre_keys jsonb,
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT encryption_keys_pkey PRIMARY KEY (id),
-  CONSTRAINT encryption_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.media_files (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  message_id uuid NOT NULL,
-  file_url text NOT NULL,
-  file_type text,
-  file_size integer,
-  uploaded_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT media_files_pkey PRIMARY KEY (id),
-  CONSTRAINT media_files_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id)
-);
-CREATE TABLE public.messages (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  chat_id uuid NOT NULL,
-  sender_id uuid NOT NULL,
-  content text NOT NULL,
-  type text DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'media'::text, 'system'::text])),
-  status text DEFAULT 'sent'::text CHECK (status = ANY (ARRAY['sent'::text, 'delivered'::text, 'read'::text])),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT messages_pkey PRIMARY KEY (id),
-  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
-  CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.notifications (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  title text NOT NULL,
-  content text,
-  type text CHECK (type = ANY (ARRAY['message'::text, 'call'::text, 'system'::text])),
-  is_read boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT notifications_pkey PRIMARY KEY (id),
-  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.users (
-  id uuid NOT NULL,
+-- 1. ENABLE EXTENSIONS (If needed for UUIDs)
+create extension if not exists "uuid-ossp";
+
+-- 2. USERS (Public Profile - Syncs with Auth)
+create table public.users (
+  id uuid references auth.users not null primary key, -- FK to internal Auth
   email text,
-  username text UNIQUE,
+  username text unique,
   full_name text,
   avatar_url text,
   status_message text,
-  last_seen timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT users_pkey PRIMARY KEY (id),
-  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  last_seen timestamptz default now(),
+  created_at timestamptz default now()
 );
+
+-- 3. ENCRYPTION KEYS (Signal Protocol)
+create table public.encryption_keys (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  identity_key text not null,      -- Public Identity Key
+  signed_pre_key text not null,    -- Signed Pre Key
+  one_time_pre_keys jsonb,         -- Batch of One-Time Pre Keys
+  updated_at timestamptz default now()
+);
+
+-- 4. CHATS
+create table public.chats (
+  id uuid default gen_random_uuid() primary key,
+  type text check (type in ('private', 'group')) not null,
+  name text, -- Nullable (only used for Groups)
+  created_at timestamptz default now()
+);
+
+-- 5. CHAT PARTICIPANTS (Join Table)
+create table public.chat_participants (
+  chat_id uuid references public.chats(id) on delete cascade not null,
+  user_id uuid references public.users(id) on delete cascade not null,
+  role text default 'member' check (role in ('admin', 'member')),
+  joined_at timestamptz default now(),
+  primary key (chat_id, user_id) -- Composite PK prevents duplicate joins
+);
+
+-- 6. MESSAGES
+create table public.messages (
+  id uuid default gen_random_uuid() primary key,
+  chat_id uuid references public.chats(id) on delete cascade not null,
+  sender_id uuid references public.users(id) not null,
+  content text not null, -- Stores the Signal Protocol Encrypted String
+  type text default 'text' check (type in ('text', 'media', 'system')),
+  status text default 'sent' check (status in ('sent', 'delivered', 'read')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 7. MEDIA FILES
+create table public.media_files (
+  id uuid default gen_random_uuid() primary key,
+  message_id uuid references public.messages(id) on delete cascade not null,
+  file_url text not null, -- Path to Supabase Storage Bucket
+  file_type text,
+  file_size int,
+  uploaded_at timestamptz default now()
+);
+
+-- 8. NOTIFICATIONS
+create table public.notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  title text not null,
+  content text,
+  type text check (type in ('message', 'call', 'system')),
+  is_read boolean default false,
+  created_at timestamptz default now()
+);
+
+-- 9. AI AGENT SESSIONS
+create table public.ai_agent_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  title text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 10. AI INTERACTIONS (Chat history with AI)
+create table public.ai_interactions (
+  id uuid default gen_random_uuid() primary key,
+  session_id uuid references public.ai_agent_sessions(id) on delete cascade not null,
+  user_query text not null,
+  ai_response text not null,
+  intent text check (intent in ('info', 'writing', 'productivity')),
+  created_at timestamptz default now()
+);
+
+-- 11. CALLS (Active WebRTC Sessions)
+create table public.calls (
+  id uuid default gen_random_uuid() primary key,
+  chat_id uuid references public.chats(id) on delete cascade not null,
+  initiator_id uuid references public.users(id) not null,
+  status text default 'active' check (status in ('active', 'ended')),
+  type text default 'audio' check (type in ('audio', 'video')),
+  start_time timestamptz default now(),
+  end_time timestamptz
+);
+
+-- 12. CALL PARTICIPANTS (Who is in the call?)
+create table public.call_participants (
+  call_id uuid references public.calls(id) on delete cascade not null,
+  user_id uuid references public.users(id) not null,
+  status text default 'connecting' check (status in ('connecting', 'connected', 'left', 'rejected')),
+  joined_at timestamptz default now(),
+  primary key (call_id, user_id)
+);
+
+-- 13. CALL LOGS (Historical Data)
+create table public.call_logs (
+  id uuid default gen_random_uuid() primary key,
+  call_id uuid references public.calls(id) unique not null,
+  quality_rating text, -- e.g., 'good', 'poor'
+  duration_seconds int,
+  created_at timestamptz default now()
+);
+
+-- 14. SECURITY: ENABLE ROW LEVEL SECURITY (RLS)
+-- Mandatory for Supabase. This locks tables down by default.
+alter table public.users enable row level security;
+alter table public.encryption_keys enable row level security;
+alter table public.chats enable row level security;
+alter table public.chat_participants enable row level security;
+alter table public.messages enable row level security;
+alter table public.media_files enable row level security;
+alter table public.notifications enable row level security;
+alter table public.ai_agent_sessions enable row level security;
+alter table public.ai_interactions enable row level security;
+alter table public.calls enable row level security;
+alter table public.call_participants enable row level security;
+alter table public.call_logs enable row level security;
+
+-- 15. AUTOMATION: Sync Auth User to Public User
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.users (id, email, username, full_name, avatar_url)
+  values (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'username', 
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger the function every time a user signs up
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
