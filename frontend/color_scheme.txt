@@ -1,0 +1,148 @@
+NeuraChat Dark Theme Color Scheme
+===================================
+
+PRIMARY COLORS
+--------------
+Brand Blue: #2563EB (blue-600)
+Brand Blue Hover: #1D4ED8 (blue-700)
+Brand Blue Light: #3B82F6 (blue-500)
+
+BACKGROUND COLORS
+-----------------
+Main Background: #0F172A (slate-900)
+Sidebar Background: #1E293B (slate-800)
+Card Background: #1E293B (slate-800)
+Hover Background: #334155 (slate-700)
+Input Background: #1E293B (slate-800)
+Input Focus Background: #334155 (slate-700)
+
+TEXT COLORS
+-----------
+Primary Text: #F8FAFC (slate-50)
+Secondary Text: #CBD5E1 (slate-300)
+Muted Text: #94A3B8 (slate-400)
+Disabled Text: #64748B (slate-500)
+Label Text: #E2E8F0 (slate-200)
+
+BORDER COLORS
+-------------
+Default Border: #334155 (slate-700)
+Focus Border: #2563EB (blue-600)
+Error Border: #DC2626 (red-600)
+Divider: #334155 (slate-700)
+
+BUTTON STYLES
+-------------
+Primary Button:
+  - Background: #2563EB (blue-600)
+  - Hover: #1D4ED8 (blue-700)
+  - Text: #FFFFFF (white)
+  - Padding: px-6 py-3
+  - Border Radius: rounded-lg
+
+Secondary Button:
+  - Background: #334155 (slate-700)
+  - Hover: #475569 (slate-600)
+  - Text: #F8FAFC (slate-50)
+  - Padding: px-6 py-3
+  - Border Radius: rounded-lg
+
+FORM ELEMENTS
+-------------
+Input Field:
+  - Background: #1E293B (slate-800)
+  - Border: #334155 (slate-700)
+  - Focus Border: #2563EB (blue-600)
+  - Text: #F8FAFC (slate-50)
+  - Placeholder: #64748B (slate-500)
+  - Padding: px-4 py-3
+  - Border Radius: rounded-lg
+
+Label:
+  - Text: #E2E8F0 (slate-200)
+  - Font Size: text-sm
+  - Font Weight: font-medium
+
+CARDS & CONTAINERS
+------------------
+Card:
+  - Background: #1E293B (slate-800)
+  - Border: #334155 (slate-700)
+  - Border Radius: rounded-xl
+  - Padding: p-6 or p-8
+  - Shadow: shadow-lg
+
+Modal/Overlay:
+  - Overlay: rgba(0, 0, 0, 0.7)
+  - Background: #1E293B (slate-800)
+  - Border Radius: rounded-xl
+
+SIDEBAR
+-------
+Background: #1E293B (slate-800)
+Active Item: #2563EB (blue-600)
+Hover Item: #334155 (slate-700)
+Icon Color: #94A3B8 (slate-400)
+Active Icon: #FFFFFF (white)
+
+STATUS INDICATORS
+-----------------
+Online: #10B981 (green-500)
+Offline: #64748B (slate-500)
+Away: #F59E0B (amber-500)
+Busy: #DC2626 (red-600)
+
+ERROR STATES
+------------
+Error Background: #7F1D1D (red-900/20)
+Error Text: #FCA5A5 (red-300)
+Error Border: #DC2626 (red-600)
+
+SUCCESS STATES
+--------------
+Success Background: #14532D (green-900/20)
+Success Text: #86EFAC (green-300)
+Success Border: #10B981 (green-500)
+
+SCROLLBAR
+---------
+Track: #1E293B (slate-800)
+Thumb: #334155 (slate-700)
+Thumb Hover: #475569 (slate-600)
+
+AVATAR/PROFILE
+--------------
+Avatar Background: #2563EB (blue-600)
+Avatar Text: #FFFFFF (white)
+Avatar Border: #334155 (slate-700)
+
+SHADOWS
+-------
+Small: shadow-sm
+Medium: shadow-md
+Large: shadow-lg
+Extra Large: shadow-xl
+
+SPACING
+-------
+Container Padding: p-6
+Section Gap: space-y-6
+Form Gap: space-y-4
+Inline Gap: gap-4
+
+TYPOGRAPHY
+----------
+Heading 1: text-3xl font-bold
+Heading 2: text-2xl font-semibold
+Heading 3: text-xl font-semibold
+Body: text-base
+Small: text-sm
+Extra Small: text-xs
+
+BREAKPOINTS (Tailwind Defaults)
+-------------------------------
+sm: 640px
+md: 768px
+lg: 1024px
+xl: 1280px
+2xl: 1536px
