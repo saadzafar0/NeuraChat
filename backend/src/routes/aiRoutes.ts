@@ -1,24 +1,33 @@
+// backend/src/routes/aiRoutes.ts
 import { Router } from 'express';
-import {
-  createAISession,
-  getUserAISessions,
-  getSessionInteractions,
-  sendAIMessage,
-  updateAISession,
-  deleteAISession,
+import { authenticateToken } from '../middleware/auth'; // Ensure this matches your middleware export
+import { 
+  correctGrammar, 
+  summarizeMessage, 
+  enhanceMessage, 
+  expandMessage, 
+  changeTone, 
+  translateMessage, 
+  chatWithAgent, 
+  getAvailableModels 
 } from '../controllers/aiController';
-import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// All routes require authentication
 router.use(authenticateToken);
 
-router.post('/sessions', createAISession);
-router.get('/sessions', getUserAISessions);
-router.get('/sessions/:sessionId', getSessionInteractions);
-router.post('/sessions/:sessionId/message', sendAIMessage);
-router.put('/sessions/:sessionId', updateAISession);
-router.delete('/sessions/:sessionId', deleteAISession);
+// --- Text Utilities ---
+router.post('/grammar', correctGrammar);
+router.post('/summarize', summarizeMessage);
+router.post('/enhance', enhanceMessage);
+router.post('/expand', expandMessage);
+router.post('/tone', changeTone);
+router.post('/translate', translateMessage);
+
+// --- AI Agent ---
+router.post('/chat', chatWithAgent);
+
+// --- Configuration ---
+router.get('/models', getAvailableModels);
 
 export default router;

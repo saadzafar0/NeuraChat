@@ -58,7 +58,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/calls', callRoutes); // Yet to be implemented
-app.use('/api/ai', aiRoutes); // Yet to be implemented
+app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes); // Yet to be implemented
 
 // 404 handler
@@ -164,7 +164,8 @@ httpServer.listen(PORT, () => {
                                   
   Port: ${PORT}                        
   Environment: ${process.env.NODE_ENV || 'development'}        
-  Database: ${dbInitialized ? 'Connected ✓' : 'Not Connected ✗'}           
+  Database: ${dbInitialized ? 'Connected ✓' : 'Not Connected ✗'}    
+  AI Provider: ${process.env.AI_PROVIDER || 'gemini'}       
   `);
 });
 

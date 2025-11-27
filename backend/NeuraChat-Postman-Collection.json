@@ -396,10 +396,24 @@
       ]
     },
     {
-      "name": "AI Agent (Not Implemented)",
+      "name": "AI Features",
+      "description": "AI-powered text enhancement and chat agent endpoints.\n\n🤖 Architecture:\n- **Adapter Pattern**: Supports Gemini, Ollama, and HuggingFace interchangeably.\n- **Model Override**: All POST requests accept an optional `model` parameter to switch models dynamically (e.g., use 'gemini-pro' for complex tasks, 'llama2' for speed).\n\n🔑 Authentication:\n- All routes require a valid login cookie.\n\n📝 Common Body Parameters:\n- `text`: The input text to process.\n- `model`: (Optional) Specific model name (e.g., 'gemini-1.5-flash').",
       "item": [
         {
-          "name": "Create AI Session",
+          "name": "Get Available Models",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "models"]
+            },
+            "description": "Returns a list of available AI models based on the active provider (e.g., ['gemini-pro', 'gemini-1.5-flash'] or local Ollama models)."
+          }
+        },
+        {
+          "name": "Correct Grammar",
           "request": {
             "method": "POST",
             "header": [
@@ -410,13 +424,146 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"My AI Conversation\"\n}"
+              "raw": "{\n  \"text\": \"Me want go to the store yesterday.\",\n  \"model\": \"gemini-pro\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/ai/sessions",
+              "raw": "{{baseUrl}}/api/ai/grammar",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "ai", "sessions"]
-            }
+              "path": ["api", "ai", "grammar"]
+            },
+            "description": "Corrects grammar and spelling errors."
+          }
+        },
+        {
+          "name": "Summarize Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"NeuraChat is a comprehensive messaging platform that combines real-time communication with advanced AI capabilities. It uses WebSockets for instant messaging and integrates with various AI providers like Google Gemini and Ollama to offer features such as grammar correction, text summarization, and tone adjustment. The team is currently working on adding WebRTC video calls.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/summarize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "summarize"]
+            },
+            "description": "Condenses long text into a single, clear sentence."
+          }
+        },
+        {
+          "name": "Enhance Clarity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"hey i think maybe we should prolly delay the meetin cuz im busy\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/enhance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "enhance"]
+            },
+            "description": "Rewrites text to be professional, clear, and concise without changing the meaning."
+          }
+        },
+        {
+          "name": "Expand (Drafting)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Project delayed. Supply chain issues.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/expand",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "expand"]
+            },
+            "description": "Expands short notes into a full, polite paragraph."
+          }
+        },
+        {
+          "name": "Change Tone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"You missed the deadline. Fix it immediately.\",\n  \"tone\": \"empathetic\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/tone",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "tone"]
+            },
+            "description": "Rewrites text in a specific tone.\n\nAllowed Tones:\n- `casual`\n- `formal`\n- `empathetic`"
+          }
+        },
+        {
+          "name": "Translate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello, welcome to our application.\",\n  \"targetLang\": \"Spanish\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/translate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "translate"]
+            },
+            "description": "Translates text to the target language while preserving the original nuance."
+          }
+        },
+        {
+          "name": "Chat with AI Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{userId}}\", \n  \"query\": \"Can you help me draft an email about the project delay?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "chat"]
+            },
+            "description": "Conversational endpoint. \n\n- `sessionId`: Uses this to fetch previous context (last 5 messages) from the database.\n- `query`: The user's new message.\n\nThe backend automatically fetches context, sends it to the AI, and saves the new interaction to Supabase."
           }
         }
       ]
