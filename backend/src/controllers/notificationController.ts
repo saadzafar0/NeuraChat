@@ -3,7 +3,6 @@ import { NotificationService } from '../services/Notifications/NotificationServi
 
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Assuming you have Auth Middleware attaching user to req
     const userId = (req as any).user?.id; 
     const page = parseInt(req.query.page as string) || 1;
     const limit = 20;
