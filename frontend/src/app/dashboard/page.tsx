@@ -446,6 +446,7 @@ export default function DashboardPage() {
                               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-50 focus:outline-none focus:border-blue-600 resize-none"
                               rows={3}
                               autoFocus
+                              aria-label="Edit message"
                             />
                             <div className="flex gap-2">
                               <button

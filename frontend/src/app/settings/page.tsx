@@ -84,6 +84,7 @@ export default function SettingsPage() {
                   value={user?.full_name || ''}
                   readOnly
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-blue-600 transition-colors"
+                  aria-label="Display Name"
                 />
               </div>
 
@@ -97,6 +98,7 @@ export default function SettingsPage() {
                   value={user?.username || ''}
                   readOnly
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-blue-600 transition-colors"
+                  aria-label="Username"
                 />
               </div>
 
@@ -110,6 +112,7 @@ export default function SettingsPage() {
                   value={user?.email || ''}
                   disabled
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-500 cursor-not-allowed"
+                  aria-label="Email Address"
                 />
                 <p className="text-xs text-slate-500 mt-1">Email address cannot be changed</p>
               </div>
@@ -140,7 +143,7 @@ export default function SettingsPage() {
                     <h3 className="text-slate-200 font-medium">Smart Reply</h3>
                     <p className="text-sm text-slate-400">Enable AI-generated quick replies</p>
                   </div>
-                  <button className="w-12 h-6 bg-blue-600 rounded-full relative transition-colors">
+                  <button type="button" title="Toggle Smart Reply" className="w-12 h-6 bg-blue-600 rounded-full relative transition-colors">
                     <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
                   </button>
                 </div>
@@ -150,7 +153,7 @@ export default function SettingsPage() {
                     <h3 className="text-slate-200 font-medium">Message Summarization</h3>
                     <p className="text-sm text-slate-400">Summarize long conversations</p>
                   </div>
-                  <button className="w-12 h-6 bg-slate-700 rounded-full relative transition-colors">
+                  <button title='Message Summarization' className="w-12 h-6 bg-slate-700 rounded-full relative transition-colors">
                     <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
                   </button>
                 </div>
@@ -160,7 +163,7 @@ export default function SettingsPage() {
                     <h3 className="text-slate-200 font-medium">Voice Assistant</h3>
                     <p className="text-sm text-slate-400">Enable voice commands</p>
                   </div>
-                  <button className="w-12 h-6 bg-slate-700 rounded-full relative transition-colors">
+                  <button title="Voice Assistant" className="w-12 h-6 bg-slate-700 rounded-full relative transition-colors">
                     <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
                   </button>
                 </div>

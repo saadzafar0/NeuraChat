@@ -124,6 +124,7 @@ export default function NewChatModal({ isOpen, onClose, onChatCreated }: NewChat
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-slate-50">New Chat</h2>
             <button
+              title='New Chat'
               onClick={onClose}
               className="text-slate-400 hover:text-slate-200 transition-colors"
             >
@@ -204,6 +205,7 @@ export default function NewChatModal({ isOpen, onClose, onChatCreated }: NewChat
                 >
                   <span className="text-sm text-slate-200">{user.username}</span>
                   <button
+                    title='Username'
                     onClick={() => toggleUserSelection(user)}
                     className="text-slate-400 hover:text-slate-200"
                   >
