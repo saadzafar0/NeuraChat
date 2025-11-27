@@ -1,36 +1,232 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NeuraChat Frontend
 
-## Getting Started
+Modern dark-themed Next.js frontend for NeuraChat with authentication.
 
-First, run the development server:
+## 🚀 Tech Stack
+
+- **Next.js 15.5** with App Router
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS v4**
+- **Turbopack** for fast development
+
+## 📁 Project Structure
+
+```
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx          # Root layout with AuthProvider
+│   │   ├── page.tsx             # Home page (redirects)
+│   │   ├── login/page.tsx       # Login page
+│   │   ├── register/page.tsx    # Registration page
+│   │   ├── dashboard/page.tsx   # Main dashboard with chats
+│   │   ├── settings/page.tsx    # Settings with logout
+│   │   └── calls/page.tsx       # Calls page
+│   ├── components/
+│   │   ├── AuthGuard.tsx        # Protected route wrapper
+│   │   └── Sidebar.tsx          # Navigation sidebar
+│   ├── context/
+│   │   └── AuthContext.tsx      # Global auth state
+│   └── lib/
+│       └── api.ts               # API client with credentials
+├── .env.local                   # Environment variables
+└── color_scheme.txt             # Design system colors
+```
+
+## ⚙️ Setup Instructions
+
+### 1. Environment Configuration
+
+Create `.env.local` in the `frontend/` directory:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+### 2. Backend CORS Setup
+
+Ensure your backend (`backend/src/server.ts`) has CORS configured:
+
+```typescript
+import cors from 'cors';
+
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+}));
+```
+
+### 3. Install Dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app will be available at `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔐 Authentication Flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Registration
+1. Navigate to `/register`
+2. Fill in:
+   - Display Name (full_name)
+   - Username
+   - Email
+   - Password (min 6 characters)
+3. On success, redirected to `/dashboard`
+4. JWT token stored in httpOnly cookie by backend
 
-## Learn More
+### Login
+1. Navigate to `/login`
+2. Enter email and password
+3. On success, redirected to `/dashboard`
+4. Session restored automatically on page refresh
 
-To learn more about Next.js, take a look at the following resources:
+### Logout
+1. Go to `/settings`
+2. Click "Logout" button
+3. Cookie cleared, redirected to `/login`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🎨 Color Scheme
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See `color_scheme.txt` for the complete dark theme design system:
 
-## Deploy on Vercel
+- **Primary**: Blue (#2563EB)
+- **Background**: Slate-900 (#0F172A)
+- **Cards**: Slate-800 (#1E293B)
+- **Text**: Slate-50 (#F8FAFC)
+- **Borders**: Slate-700 (#334155)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📡 API Integration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All API calls use `credentials: 'include'` to send httpOnly cookies:
+
+```typescript
+// Example from src/lib/api.ts
+fetch(url, {
+  method: 'POST',
+  credentials: 'include',  // CRITICAL for cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(data),
+});
+```
+
+## 🛡️ Protected Routes
+
+Routes are protected using `<AuthGuard>` component:
+
+```typescript
+// src/app/dashboard/page.tsx
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      {/* Protected content */}
+    </AuthGuard>
+  );
+}
+```
+
+## 🧪 Testing Authentication
+
+### Test Registration
+```bash
+# Backend should be running on port 5000
+curl -X POST http://localhost:5000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123",
+    "username": "testuser",
+    "full_name": "Test User"
+  }'
+```
+
+### Test Login
+```bash
+curl -X POST http://localhost:5000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+## 📄 Available Pages
+
+| Route | Description | Auth Required |
+|-------|-------------|---------------|
+| `/` | Home (redirects) | No |
+| `/login` | Login form | No |
+| `/register` | Registration form | No |
+| `/dashboard` | Chat dashboard | Yes |
+| `/settings` | User settings & logout | Yes |
+| `/calls` | Call history | Yes |
+
+## 🔧 Key Features
+
+- ✅ JWT authentication with httpOnly cookies
+- ✅ Automatic session restoration
+- ✅ Protected route guards
+- ✅ Dark theme UI with Tailwind
+- ✅ Responsive design
+- ✅ Error handling with user feedback
+- ✅ Loading states
+- ✅ Form validation
+
+## 🐛 Troubleshooting
+
+### CORS Errors
+- Verify backend CORS allows `credentials: true`
+- Check origin is `http://localhost:3000`
+
+### Cookie Not Set
+- Ensure backend sets `httpOnly`, `sameSite: 'strict'`
+- Check `secure: false` in development
+
+### 401 Unauthorized
+- Verify `JWT_SECRET` matches in backend `.env`
+- Check token expiration settings
+
+### Redirect Loops
+- Clear browser cookies
+- Check `AuthGuard` logic
+- Verify `/auth/me` endpoint works
+
+## 📝 Development Notes
+
+1. **API Client**: All requests in `src/lib/api.ts` use singleton pattern
+2. **Auth Context**: Global state managed in `src/context/AuthContext.tsx`
+3. **Cookie Storage**: JWT stored by backend, never accessible via JavaScript
+4. **Type Safety**: Full TypeScript support for API responses
+
+## 🚀 Next Steps
+
+- [ ] Implement chat functionality
+- [ ] Add real-time messaging with WebSocket
+- [ ] Integrate call features
+- [ ] Add notification system
+- [ ] Connect to AI endpoints
+
+## 📚 Documentation
+
+- [Next.js Docs](https://nextjs.org/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [React 19](https://react.dev)
+
+## 🤝 Support
+
+For issues or questions, check the backend logs and ensure all environment variables are correctly set.
+
+---
+
+**Built with ❤️ using Next.js 15.5, React 19, and Tailwind CSS v4**
