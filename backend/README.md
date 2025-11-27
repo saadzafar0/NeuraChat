@@ -277,19 +277,193 @@ All call endpoints will return:
 
 Status Code: `501 Not Implemented`
 
-### AI Agent Endpoints
+### AI Endpoints
 
-**Note**: AI agent functionality is yet to be implemented.
+All AI endpoints are protected and require authentication. They are routed under `/api/ai`.
+These endpoints allow for dynamic model selection by passing an optional `model` field in the request body. If omitted, the default model configured on the server is used.
 
-All AI endpoints will return:
+#### Get Available Models
 
+Fetches a list of AI models available from the configured provider.
+
+```http
+GET /api/ai/models
+```
+
+**Response**:
 ```json
 {
-  "error": "AI functionality yet to be implemented"
+  "models": ["gemini-1.5-flash", "deepseek-coder", "llama3"]
 }
 ```
 
-Status Code: `501 Not Implemented`
+---
+
+#### Correct Grammar
+
+Corrects grammar and spelling mistakes in the provided text.
+
+```http
+POST /api/ai/grammar
+Content-Type: application/json
+
+{
+  "text": "Me want go store now.",
+  "model": "gemini-1.5-flash"
+}
+```
+
+**Response**:
+```json
+{
+  "corrected": "I want to go to the store now."
+}
+```
+
+---
+
+#### Summarize Text
+
+Generates a concise, single-sentence summary of the provided text.
+
+```http
+POST /api/ai/summarize
+Content-Type: application/json
+
+{
+  "text": "NeuraChat is a new application that uses AI to help people communicate better. It has features like grammar correction and summarization."
+}
+```
+
+**Response**:
+```json
+{
+  "summary": "NeuraChat is an AI-powered application designed to improve communication through features like grammar correction and summarization."
+}
+```
+
+---
+
+#### Enhance Text
+
+Rewrites text to be more clear, concise, and professional without changing the meaning.
+
+```http
+POST /api/ai/enhance
+Content-Type: application/json
+
+{
+  "text": "hey i think maybe we should prolly delay the meetin cuz im busy"
+}
+```
+
+**Response**:
+```json
+{
+  "enhanced": "I propose we delay the meeting, as I have a scheduling conflict."
+}
+```
+
+---
+
+#### Expand Text
+
+Expands a short input into a more detailed, well-structured paragraph.
+
+```http
+POST /api/ai/expand
+Content-Type: application/json
+
+{
+  "text": "Project delayed. Supply chain issues."
+}
+```
+
+**Response**:
+```json
+{
+  "expanded": "The project timeline has been delayed due to unforeseen supply chain disruptions. We are actively monitoring the situation and will provide a revised schedule as soon as possible."
+}
+```
+
+---
+
+#### Change Tone
+
+Rewrites text to adopt a specific tone.
+
+```http
+POST /api/ai/tone
+Content-Type: application/json
+
+{
+  "text": "You missed the deadline. Fix it.",
+  "tone": "empathetic"
+}
+```
+
+**Body Parameters**:
+- `tone` (string, required): The target tone. Options: `casual`, `formal`, `empathetic`.
+
+**Response**:
+```json
+{
+  "rewritten": "I noticed the deadline was missed. Let's touch base to see how we can work together to get this completed."
+}
+```
+
+---
+
+#### Translate Text
+
+Translates text into a target language.
+
+```http
+POST /api/ai/translate
+Content-Type: application/json
+
+{
+  "text": "Hello, welcome to NeuraChat.",
+  "targetLang": "Spanish"
+}
+```
+
+**Body Parameters**:
+- `targetLang` (string, required): The language to translate the text into.
+
+**Response**:
+```json
+{
+  "translated": "Hola, bienvenido a NeuraChat."
+}
+```
+
+---
+
+#### AI Agent Chat
+
+Engages in a conversational chat with the AI, maintaining context within a session.
+
+```http
+POST /api/ai/chat
+Content-Type: application/json
+
+{
+  "sessionId": "session-12345",
+  "query": "What was the last thing I asked you?"
+}
+```
+
+**Body Parameters**:
+- `sessionId` (string, required): A unique identifier for the conversation session. The server uses this to retrieve recent chat history.
+- `query` (string, required): The user's new message or question.
+
+**Response**:
+```json
+{
+  "response": "You previously asked me about the project timeline."
+}
+```
 
 ### Notification Endpoints
 
@@ -558,8 +732,6 @@ The API uses the following Supabase (PostgreSQL) tables:
 
 ### AI Agent Tables
 
-**Note**: AI agent functionality yet to be implemented. The following schema is for future use.
-
 - **`ai_agent_sessions`** - AI conversation sessions
 
   - `id` (uuid, primary key)
@@ -568,7 +740,7 @@ The API uses the following Supabase (PostgreSQL) tables:
   - `created_at` (timestamp)
   - `updated_at` (timestamp)
 - **`ai_interactions`** - AI conversation history
-
+  **Note**: The `ai_interactions` table is actively used for storing AI chat session history.
   - `id` (uuid, primary key)
   - `session_id` (uuid, foreign key → ai_agent_sessions)
   - `user_query` (text)
