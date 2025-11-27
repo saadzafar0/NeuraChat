@@ -1,5 +1,5 @@
 // API Client for NeuraChat Backend
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface RequestOptions extends RequestInit {
   body?: any;
@@ -133,6 +133,63 @@ class APIClient {
   async updateLastSeen() {
     return this.request('/users/last-seen', {
       method: 'PUT',
+    });
+  }
+
+  // Chat endpoints
+  async createChat(data: {
+    type: 'private' | 'group';
+    name?: string;
+    participants: string[];
+  }) {
+    return this.request('/chats', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async getUserChats() {
+    return this.request('/chats', {
+      method: 'GET',
+    });
+  }
+
+  async getChatDetails(chatId: string) {
+    return this.request(`/chats/${chatId}`, {
+      method: 'GET',
+    });
+  }
+
+  async updateChat(chatId: string, data: { name: string }) {
+    return this.request(`/chats/${chatId}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  async leaveChat(chatId: string) {
+    return this.request(`/chats/${chatId}/leave`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Message endpoints
+  async getChatMessages(chatId: string, limit = 50, offset = 0) {
+    return this.request(`/messages/${chatId}?limit=${limit}&offset=${offset}`, {
+      method: 'GET',
+    });
+  }
+
+  async deleteMessage(messageId: string) {
+    return this.request(`/messages/${messageId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async editMessage(messageId: string, content: string) {
+    return this.request(`/messages/${messageId}`, {
+      method: 'PUT',
+      body: { content },
     });
   }
 }
