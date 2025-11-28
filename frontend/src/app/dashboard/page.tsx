@@ -7,6 +7,7 @@ import NewChatModal from '@/components/NewChatModal';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import socketClient from '@/lib/socket';
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 
 interface Message {
   id: string;
@@ -54,6 +55,8 @@ export default function DashboardPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [messageMenuOpen, setMessageMenuOpen] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -205,17 +208,32 @@ export default function DashboardPage() {
     }, 3000);
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!confirm('Are you sure you want to delete this message?')) return;
+  // open confirmation modal (called from menu)
+  const handleDeleteMessage = (messageId: string) => {
+    setMessageToDelete(messageId);
+    setIsDeleteModalOpen(true);
+    setMessageMenuOpen(null);
+  };
 
+  // confirmed deletion (called from modal)
+  const confirmDelete = async () => {
+    if (!messageToDelete) return;
     try {
-      await api.deleteMessage(messageId);
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      setMessageMenuOpen(null);
+      await api.deleteMessage(messageToDelete);
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageToDelete));
     } catch (error) {
       console.error('Failed to delete message:', error);
+      // optionally show a toast / inline error
       alert('Failed to delete message');
+    } finally {
+      setMessageToDelete(null);
+      setIsDeleteModalOpen(false);
     }
+  };
+  
+  const closeDeleteModal = () => {
+    setMessageToDelete(null);
+    setIsDeleteModalOpen(false);
   };
 
   const startEditMessage = (message: Message) => {
@@ -466,18 +484,20 @@ export default function DashboardPage() {
                         ) : (
                           <div className="relative group">
                             {/* Action button moved outside the message content box */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id);
-                              }}
-                              className={`absolute top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/20 rounded ${isOwnMessage ? '-left-8' : '-right-8'}`}
-                              aria-label="message actions"
-                            >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                              </svg>
-                            </button>
+                            {isOwnMessage && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id);
+                                }}
+                                className="absolute top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/20 rounded -left-8"
+                                aria-label="message actions"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                              </button>
+                            )}
 
                             <div
                               className={`px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-50'}`}
@@ -583,6 +603,14 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        message="Are you sure you want to delete this message? This action cannot be undone."
+      />
 
       {/* New Chat Modal */}
       <NewChatModal
