@@ -60,7 +60,6 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch user's chats
   const fetchChats = async () => {
     try {
       const response: any = await api.getUserChats();
@@ -72,7 +71,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Fetch messages for selected chat
   const fetchMessages = async (chatId: string) => {
     try {
       const response: any = await api.getChatMessages(chatId);
@@ -83,25 +81,20 @@ export default function DashboardPage() {
     }
   };
 
-  // Initialize: Fetch chats
   useEffect(() => {
     fetchChats();
   }, []);
 
-  // Socket.IO: Connect and setup listeners
   useEffect(() => {
     if (!user) return;
 
-    // Connect to socket (Note: Backend needs to handle JWT from cookies)
     socketClient.connect('');
 
-    // Listen for new messages
     socketClient.onNewMessage((message: Message) => {
       if (selectedChat && message.chat_id === selectedChat.id) {
         setMessages((prev) => [...prev, message]);
         scrollToBottom();
       }
-      // Update last message in chat list
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === message.chat_id
@@ -118,14 +111,12 @@ export default function DashboardPage() {
       );
     });
 
-    // Listen for message updates
     socketClient.onMessageUpdated((message: Message) => {
       setMessages((prev) =>
         prev.map((msg) => (msg.id === message.id ? message : msg))
       );
     });
 
-    // Listen for message deletions
     socketClient.onMessageDeleted(({ messageId }) => {
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
     });
@@ -138,7 +129,6 @@ export default function DashboardPage() {
     };
   }, [user, selectedChat]);
 
-  // When chat is selected, fetch messages and join room
   useEffect(() => {
     if (selectedChat) {
       fetchMessages(selectedChat.id);
@@ -152,7 +142,6 @@ export default function DashboardPage() {
     };
   }, [selectedChat]);
 
-  // Close message menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
       if (messageMenuOpen) {
@@ -178,7 +167,6 @@ export default function DashboardPage() {
     setSendingMessage(true);
 
     try {
-      // Send with correct field names matching backend
       socketClient.sendMessage({
         chat_id: selectedChat.id,
         sender_id: user.id,
@@ -188,7 +176,7 @@ export default function DashboardPage() {
       socketClient.stopTyping(selectedChat.id, user.id);
     } catch (error) {
       console.error('Failed to send message:', error);
-      setMessageInput(content); // Restore message on error
+      setMessageInput(content);
     } finally {
       setSendingMessage(false);
     }
@@ -208,14 +196,12 @@ export default function DashboardPage() {
     }, 3000);
   };
 
-  // open confirmation modal (called from menu)
   const handleDeleteMessage = (messageId: string) => {
     setMessageToDelete(messageId);
     setIsDeleteModalOpen(true);
     setMessageMenuOpen(null);
   };
 
-  // confirmed deletion (called from modal)
   const confirmDelete = async () => {
     if (!messageToDelete) return;
     try {
@@ -223,7 +209,6 @@ export default function DashboardPage() {
       setMessages((prev) => prev.filter((msg) => msg.id !== messageToDelete));
     } catch (error) {
       console.error('Failed to delete message:', error);
-      // optionally show a toast / inline error
       alert('Failed to delete message');
     } finally {
       setMessageToDelete(null);
@@ -280,7 +265,6 @@ export default function DashboardPage() {
     if (chat.type === 'group') {
       return chat.name || 'Unnamed Group';
     }
-    // For private chats, show the other user's name
     const otherUser = chat.participants.find((p) => p.id !== user?.id);
     return otherUser?.full_name || otherUser?.username || 'Unknown User';
   };
@@ -323,25 +307,36 @@ export default function DashboardPage() {
 
   return (
     <AuthGuard>
-      <div className="flex h-screen bg-slate-900">
+      <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 relative overflow-hidden">
+        {/* Background Grid Effect */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,217,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,217,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none"></div>
+        
         <Sidebar />
 
         {/* Chat List */}
-        <div className="w-80 bg-slate-800 border-r border-slate-700 flex flex-col">
-          <div className="p-6 border-b border-slate-700">
-            <h1 className="text-2xl font-bold text-slate-50 mb-4">Chats</h1>
+        <div className="w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex flex-col relative z-10">
+          {/* Header with Gradient */}
+          <div className="p-6 border-b border-gray-700/50 relative">
+            {/* Glow Effect */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
+            
+            <h1 className="text-2xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Chats
+              </span>
+            </h1>
 
-            {/* Search */}
-            <div className="relative mb-4">
+            {/* Search with Glow */}
+            <div className="relative mb-4 group">
               <input
                 type="text"
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 pl-10 bg-slate-900 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-blue-600 transition-colors text-sm"
+                className="w-full px-4 py-2 pl-10 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all text-sm"
               />
               <svg
-                className="absolute left-3 top-2.5 w-4 h-4 text-slate-500"
+                className="absolute left-3 top-2.5 w-4 h-4 text-gray-500 group-focus-within:text-cyan-400 transition-colors"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -353,17 +348,21 @@ export default function DashboardPage() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
             </div>
 
-            {/* New Chat Button */}
+            {/* New Chat Button with Gradient */}
             <button
               onClick={() => setIsNewChatModalOpen(true)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="relative w-full group"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Chat
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Chat
+              </div>
             </button>
           </div>
 
@@ -378,26 +377,33 @@ export default function DashboardPage() {
                 <div
                   key={chat.id}
                   onClick={() => setSelectedChat(chat)}
-                  className={`p-4 border-b border-slate-700 hover:bg-slate-700/50 cursor-pointer transition-colors ${
-                    selectedChat?.id === chat.id ? 'bg-slate-700/50' : ''
+                  className={`p-4 border-b border-gray-700/30 cursor-pointer transition-all duration-300 relative group ${
+                    selectedChat?.id === chat.id 
+                      ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-l-2 border-l-cyan-500' 
+                      : 'hover:bg-gray-700/20'
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                      {getChatAvatar(chat)}
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
+                        {getChatAvatar(chat)}
+                      </div>
+                      {selectedChat?.id === chat.id && (
+                        <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse"></div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-slate-50 truncate">
+                        <h3 className="font-semibold text-gray-100 truncate">
                           {getChatName(chat)}
                         </h3>
                         {chat.last_message && (
-                          <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
+                          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                             {formatTime(chat.last_message.created_at)}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-slate-400 truncate">
+                      <p className="text-sm text-gray-400 truncate">
                         {chat.last_message?.content || 'No messages yet'}
                       </p>
                     </div>
@@ -406,8 +412,8 @@ export default function DashboardPage() {
               ))
             ) : (
               <div className="text-center py-8 px-4">
-                <p className="text-slate-400">No chats yet</p>
-                <p className="text-sm text-slate-500 mt-2">Click "New Chat" to start messaging</p>
+                <p className="text-gray-400">No chats yet</p>
+                <p className="text-sm text-gray-500 mt-2">Click "New Chat" to start messaging</p>
               </div>
             )}
           </div>
@@ -415,16 +421,21 @@ export default function DashboardPage() {
 
         {/* Chat Area */}
         {selectedChat ? (
-          <div className="flex-1 flex flex-col bg-slate-900">
-            {/* Chat Header */}
-            <div className="p-4 border-b border-slate-700 bg-slate-800">
+          <div className="flex-1 flex flex-col relative z-10">
+            {/* Chat Header with Gradient Border */}
+            <div className="p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
+              
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                  {getChatAvatar(selectedChat)}
+                <div className="relative">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-cyan-500/30">
+                    {getChatAvatar(selectedChat)}
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 shadow-lg shadow-emerald-500/50"></div>
                 </div>
                 <div className="flex-1">
-                  <h2 className="font-semibold text-slate-50">{getChatName(selectedChat)}</h2>
-                  <p className="text-sm text-slate-400">
+                  <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
+                  <p className="text-sm text-gray-400">
                     {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
                   </p>
                 </div>
@@ -445,13 +456,13 @@ export default function DashboardPage() {
                   >
                     <div className={`flex gap-2 max-w-[70%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {!isOwnMessage && (
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                        <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
                           {getInitials(sender?.full_name || sender?.username || 'U')}
                         </div>
                       )}
                       <div className="relative group">
                         {!isOwnMessage && (
-                          <div className="text-xs text-slate-400 mb-1 px-3">
+                          <div className="text-xs text-cyan-400 mb-1 px-3 font-medium">
                             {sender?.full_name || sender?.username}
                           </div>
                         )}
@@ -461,7 +472,7 @@ export default function DashboardPage() {
                             <textarea
                               value={editingContent}
                               onChange={(e) => setEditingContent(e.target.value)}
-                              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-50 focus:outline-none focus:border-blue-600 resize-none"
+                              className="w-full px-4 py-2 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:border-cyan-500 resize-none"
                               rows={3}
                               autoFocus
                               aria-label="Edit message"
@@ -469,13 +480,13 @@ export default function DashboardPage() {
                             <div className="flex gap-2">
                               <button
                                 onClick={handleEditMessage}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                className="px-3 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 text-white text-sm rounded-lg transition-all duration-300 shadow-lg"
                               >
                                 Save
                               </button>
                               <button
                                 onClick={cancelEdit}
-                                className="px-3 py-1 bg-slate-600 hover:bg-slate-500 text-white text-sm rounded transition-colors"
+                                className="px-3 py-1 bg-gray-700/50 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors"
                               >
                                 Cancel
                               </button>
@@ -483,39 +494,44 @@ export default function DashboardPage() {
                           </div>
                         ) : (
                           <div className="relative group">
-                            {/* Action button moved outside the message content box */}
+                            {/* Action button */}
                             {isOwnMessage && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setMessageMenuOpen(messageMenuOpen === message.id ? null : message.id);
                                 }}
-                                className="absolute top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/20 rounded -left-8"
+                                className="absolute top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/30 rounded-lg -left-8"
                                 aria-label="message actions"
                               >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                                 </svg>
                               </button>
                             )}
 
+                            {/* Message Bubble */}
                             <div
-                              className={`px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-50'}`}
+                              className={`px-4 py-2 rounded-lg ${
+                                isOwnMessage
+                                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
+                                  : 'backdrop-blur-sm bg-gray-700/40 border border-gray-600/30 text-gray-100'
+                              }`}
                             >
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                              <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-slate-400'}`}>
+                              <p className={`text-xs mt-1 ${isOwnMessage ? 'text-cyan-100' : 'text-gray-400'}`}>
                                 {formatMessageTime(message.created_at)}
                               </p>
 
-                              {/* Dropdown Menu (unchanged position) */}
+                              {/* Dropdown Menu */}
                               {messageMenuOpen === message.id && (
                                 <div
-                                  className={`absolute ${isOwnMessage ? 'left-0' : 'right-0'} top-8 bg-slate-800 border border-slate-700 rounded-lg shadow-lg py-1 z-10 min-w-[120px]`}
+                                  className={`absolute ${isOwnMessage ? 'left-0' : 'right-0'} top-full mt-1 backdrop-blur-xl bg-gray-800/90 border border-gray-700/50 rounded-lg shadow-2xl py-1 z-20 min-w-[120px]`}
                                 >
                                   {isOwnMessage && (
                                     <button
                                       onClick={() => startEditMessage(message)}
-                                      className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors flex items-center gap-2"
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-cyan-500/20 transition-colors flex items-center gap-2"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -525,7 +541,7 @@ export default function DashboardPage() {
                                   )}
                                   <button
                                     onClick={() => handleDeleteMessage(message.id)}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-2"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -545,58 +561,71 @@ export default function DashboardPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div className="p-4 border-t border-slate-700 bg-slate-800">
+            {/* Message Input with Glow */}
+            <div className="p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
+              
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Type a message..."
-                  value={messageInput}
-                  onChange={(e) => {
-                    setMessageInput(e.target.value);
-                    handleTyping();
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  disabled={sendingMessage}
-                  className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-blue-600 transition-colors"
-                />
+                <div className="flex-1 relative group">
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    value={messageInput}
+                    onChange={(e) => {
+                      setMessageInput(e.target.value);
+                      handleTyping();
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={sendingMessage}
+                    className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                  />
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+                </div>
                 <button
                   onClick={handleSendMessage}
                   disabled={!messageInput.trim() || sendingMessage}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                  className="relative group"
                 >
-                  Send
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 px-6 py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium shadow-lg">
+                    Send
+                  </div>
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-slate-900">
+          <div className="flex-1 flex items-center justify-center relative z-10">
             <div className="text-center">
-              <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-12 h-12 text-slate-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
+              <div className="relative w-24 h-24 mx-auto mb-4">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full blur-lg opacity-50 animate-pulse"></div>
+                <div className="relative w-24 h-24 backdrop-blur-sm bg-gray-800/40 border border-gray-700/50 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-12 h-12 text-cyan-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold text-slate-300 mb-2">
-                Select a conversation to start messaging
+              <h2 className="text-xl font-semibold mb-2">
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                  Select a conversation to start messaging
+                </span>
               </h2>
-              <p className="text-slate-500">
+              <p className="text-gray-500">
                 Choose from your existing conversations or start a new one
               </p>
             </div>
@@ -604,7 +633,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Modals */}
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={closeDeleteModal}
@@ -612,7 +641,6 @@ export default function DashboardPage() {
         message="Are you sure you want to delete this message? This action cannot be undone."
       />
 
-      {/* New Chat Modal */}
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}

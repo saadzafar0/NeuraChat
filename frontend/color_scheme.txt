@@ -1,148 +1,182 @@
-NeuraChat Dark Theme Color Scheme
-===================================
+NeuraChat Futuristic Cyberpunk Theme
+====================================
 
 PRIMARY COLORS
 --------------
-Brand Blue: #2563EB (blue-600)
-Brand Blue Hover: #1D4ED8 (blue-700)
-Brand Blue Light: #3B82F6 (blue-500)
+Neon Blue: #00D9FF (primary accent - electric blue)
+Deep Purple: #6366F1 (indigo-500 - secondary accent)
+Cyber Pink: #EC4899 (pink-500 - tertiary accent)
+Neon Green: #10B981 (emerald-500 - success/active)
+
+GRADIENTS
+---------
+Primary Gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%)
+Hero Gradient: linear-gradient(135deg, #00D9FF 0%, #6366F1 50%, #EC4899 100%)
+Card Gradient: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)
+Button Gradient: linear-gradient(135deg, #00D9FF 0%, #6366F1 100%)
+Hover Gradient: linear-gradient(135deg, #6366F1 0%, #EC4899 100%)
 
 BACKGROUND COLORS
 -----------------
-Main Background: #0F172A (slate-900)
-Sidebar Background: #1E293B (slate-800)
-Card Background: #1E293B (slate-800)
-Hover Background: #334155 (slate-700)
-Input Background: #1E293B (slate-800)
-Input Focus Background: #334155 (slate-700)
+Main Background: #0A0E27 (very dark navy - almost black)
+Secondary Background: #111827 (gray-900)
+Card Background: #1F2937 (gray-800 with gradient overlay)
+Sidebar Background: #0F1419 (darker than main)
+Glass Effect: rgba(255, 255, 255, 0.05) with backdrop-blur
+
+BORDER & GLOW EFFECTS
+---------------------
+Default Border: #374151 (gray-700)
+Glow Border: #00D9FF with box-shadow
+Neon Glow: 0 0 20px rgba(0, 217, 255, 0.5)
+Purple Glow: 0 0 20px rgba(99, 102, 241, 0.5)
+Pink Glow: 0 0 20px rgba(236, 72, 153, 0.5)
 
 TEXT COLORS
 -----------
-Primary Text: #F8FAFC (slate-50)
-Secondary Text: #CBD5E1 (slate-300)
-Muted Text: #94A3B8 (slate-400)
-Disabled Text: #64748B (slate-500)
-Label Text: #E2E8F0 (slate-200)
-
-BORDER COLORS
--------------
-Default Border: #334155 (slate-700)
-Focus Border: #2563EB (blue-600)
-Error Border: #DC2626 (red-600)
-Divider: #334155 (slate-700)
+Primary Text: #F9FAFB (gray-50 - bright white)
+Secondary Text: #D1D5DB (gray-300)
+Muted Text: #9CA3AF (gray-400)
+Disabled Text: #6B7280 (gray-500)
+Neon Text: #00D9FF (glowing blue text)
+Gradient Text: background-clip: text + gradient
 
 BUTTON STYLES
 -------------
 Primary Button:
-  - Background: #2563EB (blue-600)
-  - Hover: #1D4ED8 (blue-700)
-  - Text: #FFFFFF (white)
-  - Padding: px-6 py-3
-  - Border Radius: rounded-lg
+  - Background: linear-gradient(135deg, #00D9FF, #6366F1)
+  - Hover: linear-gradient(135deg, #6366F1, #EC4899)
+  - Text: #FFFFFF
+  - Shadow: 0 0 20px rgba(0, 217, 255, 0.4)
+  - Border: 1px solid rgba(255, 255, 255, 0.1)
 
-Secondary Button:
-  - Background: #334155 (slate-700)
-  - Hover: #475569 (slate-600)
-  - Text: #F8FAFC (slate-50)
-  - Padding: px-6 py-3
-  - Border Radius: rounded-lg
+Glass Button:
+  - Background: rgba(255, 255, 255, 0.05)
+  - Backdrop-filter: blur(10px)
+  - Border: 1px solid rgba(255, 255, 255, 0.1)
+  - Hover: rgba(255, 255, 255, 0.1)
 
 FORM ELEMENTS
 -------------
 Input Field:
-  - Background: #1E293B (slate-800)
-  - Border: #334155 (slate-700)
-  - Focus Border: #2563EB (blue-600)
-  - Text: #F8FAFC (slate-50)
-  - Placeholder: #64748B (slate-500)
-  - Padding: px-4 py-3
-  - Border Radius: rounded-lg
-
-Label:
-  - Text: #E2E8F0 (slate-200)
-  - Font Size: text-sm
-  - Font Weight: font-medium
+  - Background: rgba(17, 24, 39, 0.6)
+  - Border: 1px solid #374151
+  - Focus Border: #00D9FF with glow
+  - Backdrop-filter: blur(10px)
+  - Placeholder: #6B7280
 
 CARDS & CONTAINERS
 ------------------
-Card:
-  - Background: #1E293B (slate-800)
-  - Border: #334155 (slate-700)
-  - Border Radius: rounded-xl
-  - Padding: p-6 or p-8
-  - Shadow: shadow-lg
+Glass Card:
+  - Background: rgba(31, 41, 55, 0.4)
+  - Backdrop-filter: blur(16px)
+  - Border: 1px solid rgba(255, 255, 255, 0.1)
+  - Shadow: 0 8px 32px rgba(0, 0, 0, 0.4)
 
-Modal/Overlay:
-  - Overlay: rgba(0, 0, 0, 0.7)
-  - Background: #1E293B (slate-800)
-  - Border Radius: rounded-xl
+Neon Card:
+  - Background: #1F2937
+  - Border: 1px solid #00D9FF
+  - Box-shadow: 0 0 20px rgba(0, 217, 255, 0.2)
+
+MESSAGE BUBBLES
+---------------
+Own Message:
+  - Background: linear-gradient(135deg, #00D9FF, #6366F1)
+  - Text: #FFFFFF
+  - Shadow: 0 4px 12px rgba(0, 217, 255, 0.3)
+
+Other Message:
+  - Background: rgba(55, 65, 81, 0.6)
+  - Backdrop-filter: blur(10px)
+  - Border: 1px solid rgba(255, 255, 255, 0.05)
+  - Text: #F9FAFB
 
 SIDEBAR
 -------
-Background: #1E293B (slate-800)
-Active Item: #2563EB (blue-600)
-Hover Item: #334155 (slate-700)
-Icon Color: #94A3B8 (slate-400)
-Active Icon: #FFFFFF (white)
+Background: linear-gradient(180deg, #0F1419 0%, #0A0E27 100%)
+Active Item Background: linear-gradient(135deg, #00D9FF, #6366F1)
+Active Item Glow: 0 0 20px rgba(0, 217, 255, 0.6)
+Hover: rgba(0, 217, 255, 0.1)
+Icon Color: #9CA3AF
+Active Icon: #FFFFFF
+
+NAVIGATION
+----------
+Active Tab:
+  - Background: linear-gradient(135deg, #00D9FF, #6366F1)
+  - Border-bottom: 2px solid #00D9FF
+  - Glow: 0 0 10px rgba(0, 217, 255, 0.5)
 
 STATUS INDICATORS
 -----------------
-Online: #10B981 (green-500)
-Offline: #64748B (slate-500)
-Away: #F59E0B (amber-500)
-Busy: #DC2626 (red-600)
+Online: #10B981 (emerald-500) with glow
+Offline: #6B7280 (gray-500)
+Away: #F59E0B (amber-500) with glow
+Busy: #EF4444 (red-500) with glow
+Typing: Animated gradient pulse
 
-ERROR STATES
-------------
-Error Background: #7F1D1D (red-900/20)
-Error Text: #FCA5A5 (red-300)
-Error Border: #DC2626 (red-600)
+SPECIAL EFFECTS
+---------------
+Hover Glow: 
+  - transition: all 0.3s ease
+  - transform: translateY(-2px)
+  - box-shadow: 0 8px 24px rgba(0, 217, 255, 0.3)
 
-SUCCESS STATES
---------------
-Success Background: #14532D (green-900/20)
-Success Text: #86EFAC (green-300)
-Success Border: #10B981 (green-500)
+Scan Line Effect:
+  - Subtle animated line moving top to bottom
+  - rgba(0, 217, 255, 0.1)
+
+Particle Background:
+  - Small floating dots with opacity animation
+  - #00D9FF, #6366F1, #EC4899
 
 SCROLLBAR
 ---------
-Track: #1E293B (slate-800)
-Thumb: #334155 (slate-700)
-Thumb Hover: #475569 (slate-600)
+Track: rgba(17, 24, 39, 0.4)
+Thumb: linear-gradient(180deg, #00D9FF, #6366F1)
+Thumb Hover: linear-gradient(180deg, #6366F1, #EC4899)
+Glow: 0 0 10px rgba(0, 217, 255, 0.3)
 
 AVATAR/PROFILE
 --------------
-Avatar Background: #2563EB (blue-600)
-Avatar Text: #FFFFFF (white)
-Avatar Border: #334155 (slate-700)
+Avatar Background: linear-gradient(135deg, #00D9FF, #6366F1)
+Avatar Border: 2px solid rgba(0, 217, 255, 0.5)
+Avatar Glow: 0 0 15px rgba(0, 217, 255, 0.4)
 
-SHADOWS
--------
-Small: shadow-sm
-Medium: shadow-md
-Large: shadow-lg
-Extra Large: shadow-xl
+SHADOWS & DEPTH
+---------------
+Elevation 1: 0 2px 8px rgba(0, 0, 0, 0.3)
+Elevation 2: 0 4px 16px rgba(0, 0, 0, 0.4)
+Elevation 3: 0 8px 32px rgba(0, 0, 0, 0.5)
+Neon Shadow: 0 0 20px currentColor at 0.3 opacity
 
-SPACING
--------
-Container Padding: p-6
-Section Gap: space-y-6
-Form Gap: space-y-4
-Inline Gap: gap-4
+ANIMATION TIMINGS
+-----------------
+Fast: 150ms
+Normal: 300ms
+Slow: 500ms
+Easing: cubic-bezier(0.4, 0, 0.2, 1)
 
-TYPOGRAPHY
-----------
-Heading 1: text-3xl font-bold
-Heading 2: text-2xl font-semibold
-Heading 3: text-xl font-semibold
-Body: text-base
-Small: text-sm
-Extra Small: text-xs
+BACKDROP EFFECTS
+----------------
+Glass Blur: blur(16px)
+Slight Blur: blur(8px)
+Heavy Blur: blur(24px)
 
-BREAKPOINTS (Tailwind Defaults)
--------------------------------
+BREAKPOINTS
+-----------
 sm: 640px
 md: 768px
 lg: 1024px
 xl: 1280px
 2xl: 1536px
+
+USAGE NOTES
+-----------
+- Use gradients sparingly on primary actions
+- Apply glow effects to interactive elements
+- Maintain glass morphism for cards and modals
+- Keep text highly readable with proper contrast
+- Use neon accents for CTAs and important elements
+- Apply subtle animations for smooth transitions
+- Balance cyberpunk aesthetics with usability
