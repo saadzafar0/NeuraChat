@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
-/* NeuraChat Dark Theme Variables */
+/* NeuraChat Futuristic Cyberpunk Theme */
 :root {
-  --background: #0F172A;
-  --foreground: #F8FAFC;
-  --card-bg: #1E293B;
-  --border-color: #334155;
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
+  --background: #0A0E27;
+  --foreground: #F9FAFB;
+  --card-bg: #1F2937;
+  --border-color: #374151;
+  --primary: #00D9FF;
+  --primary-hover: #6366F1;
+  --accent-pink: #EC4899;
 }
 
 @theme inline {
@@ -23,40 +24,62 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(135deg, #0A0E27 0%, #111827 100%);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
+  position: relative;
+  overflow-x: hidden;
 }
 
-/* Custom Scrollbar */
+/* Animated Background Effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(236, 72, 153, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Custom Scrollbar with Glow */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1E293B;
+  background: rgba(17, 24, 39, 0.4);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: linear-gradient(180deg, #00D9FF, #6366F1);
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: linear-gradient(180deg, #6366F1, #EC4899);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
 }
 
-/* Loading Spinner */
+/* Loading Spinner with Gradient */
 .spinner {
   display: inline-block;
   width: 2rem;
   height: 2rem;
-  border: 4px solid #2563EB;
-  border-right-color: transparent;
+  border: 4px solid transparent;
+  border-top-color: #00D9FF;
+  border-right-color: #6366F1;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
 }
 
 @keyframes spin {
@@ -65,13 +88,26 @@ body {
   }
 }
 
-/* Focus Styles */
+/* Glow Animation */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 217, 255, 0.6);
+  }
+}
+
+/* Focus Styles with Neon Glow */
 input:focus,
 textarea:focus,
 select:focus,
 button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--primary);
+  box-shadow: 
+    0 0 0 2px var(--background), 
+    0 0 0 4px var(--primary),
+    0 0 20px rgba(0, 217, 255, 0.4);
 }
 
 /* Smooth Transitions */
@@ -80,11 +116,73 @@ button,
 input,
 textarea,
 select {
-  transition: all 200ms ease-in-out;
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Disable default focus outline on buttons */
-button:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+/* Button Hover Effect */
+button:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+
+/* Glass Morphism Effect */
+.glass {
+  background: rgba(31, 41, 55, 0.4);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Neon Border */
+.neon-border {
+  border: 1px solid #00D9FF;
+  box-shadow: 
+    0 0 10px rgba(0, 217, 255, 0.3),
+    inset 0 0 10px rgba(0, 217, 255, 0.1);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #00D9FF 0%, #6366F1 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Card Hover Effect */
+.cyber-card {
+  position: relative;
+  transition: all 300ms ease;
+}
+
+.cyber-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 217, 255, 0.2);
+}
+
+/* Scan Line Effect (Optional) */
+@keyframes scan-line {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+.scan-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(0, 217, 255, 0.3), 
+    transparent
+  );
+  animation: scan-line 4s linear infinite;
+  pointer-events: none;
 }
