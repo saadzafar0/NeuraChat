@@ -192,6 +192,40 @@ class APIClient {
       body: { content },
     });
   }
+
+  // AI endpoints
+  async createAISession(data: { title?: string }) {
+    return this.request('/ai/sessions', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async getUserAISessions() {
+    return this.request('/ai/sessions', {
+      method: 'GET',
+    });
+  }
+
+  async getSessionInteractions(sessionId: string) {
+    return this.request(`/ai/sessions/${sessionId}`, {
+      method: 'GET',
+    });
+  }
+
+  async sendAIMessage(sessionId: string, data: { query: string; intent?: string }) {
+    return this.request(`/ai/sessions/${sessionId}/message`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async enhanceMessage(message: string, action: string) {
+    return this.request('/ai/enhance', {
+      method: 'POST',
+      body: { message, action },
+    });
+  }
 }
 
 // Export singleton instance

@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import socketClient from '@/lib/socket';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import AIMessageAssistant from '@/components/AIMessageAssistant';
 
 interface Message {
   id: string;
@@ -59,6 +60,12 @@ export default function DashboardPage() {
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+
+  const handleApplyAIEnhancement = (enhancedMessage: string) => {
+    setMessageInput(enhancedMessage);
+    setIsAIAssistantOpen(false);
+  };
 
   const fetchChats = async () => {
     try {
@@ -586,6 +593,29 @@ export default function DashboardPage() {
                   />
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
                 </div>
+
+                {/* AI Assistant Button */}
+                <button
+                  onClick={() => setIsAIAssistantOpen(true)}
+                  disabled={!messageInput.trim()}
+                  className="relative group"
+                  title="AI Message Assistant"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg blur transition-opacity ${
+                    messageInput.trim() ? 'opacity-75 group-hover:opacity-100' : 'opacity-30'
+                  }`}></div>
+                  <div className={`relative px-4 py-3 rounded-lg transition-all duration-300 shadow-lg ${
+                    messageInput.trim()
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 text-white'
+                      : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
+                  }`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Send Button */}
                 <button
                   onClick={handleSendMessage}
                   disabled={!messageInput.trim() || sendingMessage}
@@ -648,6 +678,14 @@ export default function DashboardPage() {
           fetchChats();
           setIsNewChatModalOpen(false);
         }}
+      />
+
+      {/* AI Message Assistant Modal */}
+      <AIMessageAssistant
+        isOpen={isAIAssistantOpen}
+        onClose={() => setIsAIAssistantOpen(false)}
+        originalMessage={messageInput}
+        onApply={handleApplyAIEnhancement}
       />
     </AuthGuard>
   );
