@@ -1,6 +1,6 @@
 erDiagram
     %% CORE USER & AUTH
-    User {
+    users {
         uuid id PK "Supabase Auth ID"
         string email
         string username 
@@ -15,14 +15,14 @@ erDiagram
     }
 
     %% LINKING USERS TO CHATS (Crucial missing piece)
-    ChatParticipant {
+    chat_participants {
         uuid chat_id FK
         uuid user_id FK
         string role "admin | member"
         timestamp joined_at
     }
 
-    Notification {
+    notifications {
         uuid id PK
         uuid user_id FK
         string title
@@ -33,7 +33,7 @@ erDiagram
     }
 
     %% SECURITY (Signal Protocol)
-    EncryptionKey {
+    encryption_keys {
         uuid id PK
         uuid user_id FK
         text identity_key "Public Identity Key"
@@ -43,14 +43,14 @@ erDiagram
     }
 
     %% CHAT & MESSAGING
-    Chat {
+    chats {
         uuid id PK
         string type "private | group"
         string name "Group Name"
         timestamp created_at
     }
 
-    Message {
+    messages {
         uuid id PK
         uuid chat_id FK
         uuid sender_id FK
@@ -61,7 +61,7 @@ erDiagram
         timestamp updated_at
     }
 
-    MediaFile {
+    media_files {
         uuid id PK
         uuid message_id FK
         string file_url "Supabase Storage Path"
@@ -75,7 +75,7 @@ erDiagram
 
 
     %% DEDICATED AI AGENT
-    AIAgentSession {
+    ai_agent_sessions {
         uuid id PK
         uuid user_id FK
         string title
@@ -83,7 +83,7 @@ erDiagram
         timestamp updated_at
     }
 
-    AIInteraction {
+    ai_interactions {
         uuid id PK
         uuid session_id FK
         text user_query
@@ -93,7 +93,7 @@ erDiagram
     }
 
     %% CALLING & WEBRTC
-    Call {
+    calls {
         uuid id PK
         uuid chat_id FK
         uuid initiator_id FK
@@ -103,14 +103,14 @@ erDiagram
         timestamp end_time
     }
 
-    CallParticipant {
+    call_participants {
         uuid call_id FK
         uuid user_id FK
         string status "connecting | connected | left | rejected"
         timestamp joined_at
     }
 
-    CallLog {
+    call_logs {
         uuid id PK
         uuid call_id FK
         string quality_rating
@@ -119,15 +119,15 @@ erDiagram
     }
 
     %% RELATIONSHIPS
-    User ||--o{ Notification : receives
-    User ||--o{ EncryptionKey : owns
-    Chat ||--o{ Message : contains
-    User ||--o{ Message : sends
-    Message ||--o{ MediaFile : attachments
-    User ||--o{ AIAgentSession : initiates
-    AIAgentSession ||--o{ AIInteraction : logs
-    Chat ||--o{ Call : hosts
-    Call ||--o{ CallParticipant : involves
-    Call ||--o| CallLog : records
-    User ||--o{ ChatParticipant : joins
-    Chat ||--o{ ChatParticipant : has
+    users ||--o{ notifications : receives
+    users ||--o{ encryption_keys : owns
+    chats ||--o{ messages : contains
+    users ||--o{ messages : sends
+    messages ||--o{ media_file : attachments
+    users ||--o{ ai_agent_sessions : initiates
+    ai_agent_sessions ||--o{ ai_interactions : logs
+    chats ||--o{ calls : hosts
+    calls ||--o{ call_participants : involves
+    calls ||--o| call_logs : records
+    users ||--o{ chat_participants : joins
+    chats ||--o{ chat_participants : has

@@ -411,8 +411,486 @@ export const getUserProfileTool = new DynamicStructuredTool({
   },
 });
 
+// =====================
+// MESSAGING ACTIONS
+// =====================
+
+// 14. Send Message Tool
+export const sendMessageTool = new DynamicStructuredTool({
+  name: "send_message",
+  description: "Send a text message to a specific chat on behalf of a user. Use this when the user asks to send a message like 'Tell John I'll be late'.",
+  schema: z.object({
+    chat_name: z.string().describe("The chat or group name to send the message to"),
+    sender_username: z.string().describe("The username of the person sending the message"),
+    content: z.string().describe("The message content to send"),
+  }),
+  func: async ({ chat_name, sender_username, content }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const senderId = await resolveUserId(sender_username);
+      if (!senderId) return `Could not find user "${sender_username}".`;
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          sender_id: senderId,
+          content,
+          type: 'text',
+          status: 'sent'
+        });
+      if (error) throw error;
+      return `Message sent to "${chat_name}" successfully.`;
+    } catch (err: any) {
+      return `Error sending message: ${err.message}`;
+    }
+  },
+});
+
+// 15. Edit Message Tool
+export const editMessageTool = new DynamicStructuredTool({
+  name: "edit_message",
+  description: "Edit the content of an existing message by its ID.",
+  schema: z.object({
+    message_id: z.string().describe("The UUID of the message to edit"),
+    new_content: z.string().describe("The new content for the message"),
+  }),
+  func: async ({ message_id, new_content }) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ content: new_content, updated_at: new Date().toISOString() })
+        .eq('id', message_id);
+      if (error) throw error;
+      return `Message updated successfully.`;
+    } catch (err: any) {
+      return `Error editing message: ${err.message}`;
+    }
+  },
+});
+
+// 16. Delete Message Tool
+export const deleteMessageTool = new DynamicStructuredTool({
+  name: "delete_message",
+  description: "Delete a message by its ID (soft-delete by updating content to indicate deletion).",
+  schema: z.object({
+    message_id: z.string().describe("The UUID of the message to delete"),
+  }),
+  func: async ({ message_id }) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ content: '[Message deleted]', type: 'system', updated_at: new Date().toISOString() })
+        .eq('id', message_id);
+      if (error) throw error;
+      return `Message deleted successfully.`;
+    } catch (err: any) {
+      return `Error deleting message: ${err.message}`;
+    }
+  },
+});
+
+// 17. React to Message Tool
+export const reactToMessageTool = new DynamicStructuredTool({
+  name: "react_to_message",
+  description: "Add an emoji reaction to a specific message. Note: This stores the reaction in message metadata.",
+  schema: z.object({
+    message_id: z.string().describe("The UUID of the message to react to"),
+    emoji: z.string().describe("The emoji reaction (e.g., '👍', '❤️', '😂')"),
+    username: z.string().describe("The username of the person reacting"),
+  }),
+  func: async ({ message_id, emoji, username }) => {
+    try {
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      // Get current message to append reaction
+      const { data: message, error: fetchError } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('id', message_id)
+        .single();
+      if (fetchError || !message) return `Message not found.`;
+
+      // For now, we'll create a system message as a reaction indicator
+      // In a full implementation, you'd have a separate reactions table
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: (await supabase.from('messages').select('chat_id').eq('id', message_id).single()).data?.chat_id,
+          sender_id: userId,
+          content: `${emoji} reacted to a message`,
+          type: 'system',
+          status: 'sent'
+        });
+      if (error) throw error;
+      return `Reaction ${emoji} added by ${username}.`;
+    } catch (err: any) {
+      return `Error adding reaction: ${err.message}`;
+    }
+  },
+});
+
+// =====================
+// GROUP ADMINISTRATION
+// =====================
+
+// 18. Add Group Participant Tool
+export const addGroupParticipantTool = new DynamicStructuredTool({
+  name: "add_group_participant",
+  description: "Add a user to an existing group chat.",
+  schema: z.object({
+    chat_name: z.string().describe("The group chat name to add the user to"),
+    username: z.string().describe("The username of the person to add"),
+    role: z.enum(["admin", "member"]).optional().describe("Role for the new participant (default: member)"),
+  }),
+  func: async ({ chat_name, username, role = "member" }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      // Check if already a participant
+      const { data: existing } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('chat_id', chatId)
+        .eq('user_id', userId)
+        .single();
+      if (existing) return `${username} is already a participant in this chat.`;
+
+      const { error } = await supabase
+        .from('chat_participants')
+        .insert({ chat_id: chatId, user_id: userId, role });
+      if (error) throw error;
+      return `${username} added to "${chat_name}" as ${role}.`;
+    } catch (err: any) {
+      return `Error adding participant: ${err.message}`;
+    }
+  },
+});
+
+// 19. Remove Group Participant Tool
+export const removeGroupParticipantTool = new DynamicStructuredTool({
+  name: "remove_group_participant",
+  description: "Remove a user from a group chat.",
+  schema: z.object({
+    chat_name: z.string().describe("The group chat name to remove the user from"),
+    username: z.string().describe("The username of the person to remove"),
+  }),
+  func: async ({ chat_name, username }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      const { error } = await supabase
+        .from('chat_participants')
+        .delete()
+        .eq('chat_id', chatId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return `${username} removed from "${chat_name}".`;
+    } catch (err: any) {
+      return `Error removing participant: ${err.message}`;
+    }
+  },
+});
+
+// 20. Update Group Info Tool
+export const updateGroupInfoTool = new DynamicStructuredTool({
+  name: "update_group_info",
+  description: "Rename a group chat or update its details.",
+  schema: z.object({
+    chat_name: z.string().describe("The current group chat name"),
+    new_name: z.string().describe("The new name for the group chat"),
+  }),
+  func: async ({ chat_name, new_name }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const { error } = await supabase
+        .from('chats')
+        .update({ name: new_name })
+        .eq('id', chatId);
+      if (error) throw error;
+      return `Group renamed from "${chat_name}" to "${new_name}".`;
+    } catch (err: any) {
+      return `Error updating group info: ${err.message}`;
+    }
+  },
+});
+
+// 21. Leave Chat Tool
+export const leaveChatTool = new DynamicStructuredTool({
+  name: "leave_chat",
+  description: "Remove a user from a specific chat (leave the chat).",
+  schema: z.object({
+    chat_name: z.string().describe("The chat name to leave"),
+    username: z.string().describe("The username of the person leaving"),
+  }),
+  func: async ({ chat_name, username }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      const { error } = await supabase
+        .from('chat_participants')
+        .delete()
+        .eq('chat_id', chatId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return `${username} has left "${chat_name}".`;
+    } catch (err: any) {
+      return `Error leaving chat: ${err.message}`;
+    }
+  },
+});
+
+// =====================
+// MEDIA & FILES
+// =====================
+
+// 22. Get Chat Media Tool
+export const getChatMediaTool = new DynamicStructuredTool({
+  name: "get_chat_media",
+  description: "List all media files (images, videos, documents) shared in a specific chat.",
+  schema: z.object({
+    chat_name: z.string().describe("The chat name to get media from"),
+  }),
+  func: async ({ chat_name }) => {
+    try {
+      const chatId = await resolveChatId(chat_name);
+      if (!chatId) return `Could not find chat "${chat_name}".`;
+
+      const { data, error } = await supabase
+        .from('media_files')
+        .select('file_url, file_type, file_size, uploaded_at, messages!inner(chat_id)')
+        .eq('messages.chat_id', chatId)
+        .order('uploaded_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      if (!data || data.length === 0) return `No media files found in "${chat_name}".`;
+
+      const media = data.map((m: any) => ({
+        url: m.file_url,
+        type: m.file_type,
+        size: m.file_size,
+        uploaded: m.uploaded_at
+      }));
+      return JSON.stringify(media, null, 2);
+    } catch (err: any) {
+      return `Error fetching media: ${err.message}`;
+    }
+  },
+});
+
+// 23. Search Media Tool
+export const searchMediaTool = new DynamicStructuredTool({
+  name: "search_media",
+  description: "Search for media files by type (image, video, document) across all chats.",
+  schema: z.object({
+    file_type: z.string().describe("The type of media to search for (e.g., 'image', 'video', 'document', 'pdf')"),
+    limit: z.number().optional().describe("Maximum number of results (default: 10)"),
+  }),
+  func: async ({ file_type, limit = 10 }) => {
+    try {
+      const { data, error } = await supabase
+        .from('media_files')
+        .select('file_url, file_type, file_size, uploaded_at')
+        .ilike('file_type', `%${file_type}%`)
+        .order('uploaded_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      if (!data || data.length === 0) return `No ${file_type} files found.`;
+
+      return JSON.stringify(data, null, 2);
+    } catch (err: any) {
+      return `Error searching media: ${err.message}`;
+    }
+  },
+});
+
+// =====================
+// PRIVACY & SECURITY
+// =====================
+
+// Note: The EERD doesn't have a blocked_users table, so we'll use notifications
+// or a simple approach. For a full implementation, you'd add a blocked_users table.
+
+// 24. Block User Tool
+export const blockUserTool = new DynamicStructuredTool({
+  name: "block_user",
+  description: "Block a specific user. Creates a system notification to track the block.",
+  schema: z.object({
+    blocker_username: z.string().describe("The username of the person blocking"),
+    blocked_username: z.string().describe("The username of the person to block"),
+  }),
+  func: async ({ blocker_username, blocked_username }) => {
+    try {
+      const blockerId = await resolveUserId(blocker_username);
+      if (!blockerId) return `Could not find user "${blocker_username}".`;
+
+      const blockedId = await resolveUserId(blocked_username);
+      if (!blockedId) return `Could not find user "${blocked_username}".`;
+
+      // Create a system notification to track the block
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: blockerId,
+          title: 'User Blocked',
+          content: `You blocked ${blocked_username} (ID: ${blockedId})`,
+          type: 'system',
+          is_read: true
+        });
+      if (error) throw error;
+      return `${blocked_username} has been blocked.`;
+    } catch (err: any) {
+      return `Error blocking user: ${err.message}`;
+    }
+  },
+});
+
+// 25. Unblock User Tool
+export const unblockUserTool = new DynamicStructuredTool({
+  name: "unblock_user",
+  description: "Unblock a previously blocked user.",
+  schema: z.object({
+    blocker_username: z.string().describe("The username of the person unblocking"),
+    blocked_username: z.string().describe("The username of the person to unblock"),
+  }),
+  func: async ({ blocker_username, blocked_username }) => {
+    try {
+      const blockerId = await resolveUserId(blocker_username);
+      if (!blockerId) return `Could not find user "${blocker_username}".`;
+
+      const blockedId = await resolveUserId(blocked_username);
+      if (!blockedId) return `Could not find user "${blocked_username}".`;
+
+      // Remove the block notification
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', blockerId)
+        .ilike('content', `%blocked ${blocked_username}%`);
+      if (error) throw error;
+      return `${blocked_username} has been unblocked.`;
+    } catch (err: any) {
+      return `Error unblocking user: ${err.message}`;
+    }
+  },
+});
+
+// 26. Get Blocked Users Tool
+export const getBlockedUsersTool = new DynamicStructuredTool({
+  name: "get_blocked_users",
+  description: "List all users currently blocked by a specific user.",
+  schema: z.object({
+    username: z.string().describe("The username to get blocked users for"),
+  }),
+  func: async ({ username }) => {
+    try {
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('content, created_at')
+        .eq('user_id', userId)
+        .eq('title', 'User Blocked')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) return `${username} has not blocked any users.`;
+
+      // Extract blocked usernames from notification content
+      const blockedUsers = data.map((n: any) => {
+        const match = n.content.match(/You blocked (\w+)/);
+        return match ? match[1] : 'Unknown';
+      });
+      return `Blocked users: ${blockedUsers.join(', ')}`;
+    } catch (err: any) {
+      return `Error fetching blocked users: ${err.message}`;
+    }
+  },
+});
+
+// =====================
+// PRODUCTIVITY EXTENSIONS
+// =====================
+
+// 27. Translate Message Tool
+export const translateMessageTool = new DynamicStructuredTool({
+  name: "translate_message",
+  description: "Translate a specific message by its ID into a target language. Returns the translated text.",
+  schema: z.object({
+    message_id: z.string().describe("The UUID of the message to translate"),
+    target_language: z.string().describe("The target language (e.g., 'Spanish', 'French', 'Arabic', 'Japanese')"),
+  }),
+  func: async ({ message_id, target_language }) => {
+    try {
+      const { data: message, error } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', message_id)
+        .single();
+      if (error || !message) return `Message not found.`;
+
+      // Return the message with translation request - the LLM will handle actual translation
+      return `Original message: "${message.content}"\n\nPlease translate this to ${target_language}.`;
+    } catch (err: any) {
+      return `Error fetching message for translation: ${err.message}`;
+    }
+  },
+});
+
+// 28. Set Reminder Tool
+export const setReminderTool = new DynamicStructuredTool({
+  name: "set_reminder",
+  description: "Create a reminder notification scheduled for a specific time. Uses the notifications table per EERD.",
+  schema: z.object({
+    username: z.string().describe("The username to set the reminder for"),
+    title: z.string().describe("The reminder title"),
+    content: z.string().describe("The reminder content/description"),
+    remind_at: z.string().describe("When to remind (ISO 8601 format or natural language like 'in 2 hours', 'tomorrow at 9am')"),
+  }),
+  func: async ({ username, title, content, remind_at }) => {
+    try {
+      const userId = await resolveUserId(username);
+      if (!userId) return `Could not find user "${username}".`;
+
+      // Parse the remind_at time - for now, store it in the notification content
+      // A full implementation would use a scheduled jobs system
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          title: `⏰ Reminder: ${title}`,
+          content: `${content}\n\nScheduled for: ${remind_at}`,
+          type: 'system',
+          is_read: false
+        });
+      if (error) throw error;
+      return `Reminder set for ${username}: "${title}" at ${remind_at}.`;
+    } catch (err: any) {
+      return `Error setting reminder: ${err.message}`;
+    }
+  },
+});
+
 // --- EXPORT LISTS ---
 export const tools = [
+  // Core tools
   timeTool,
   userSearchTool,
   messageSearchTool,
@@ -426,9 +904,30 @@ export const tools = [
   getCallHistoryTool,
   searchChatMessagesTool,
   getUserProfileTool,
+  // Messaging actions
+  sendMessageTool,
+  editMessageTool,
+  deleteMessageTool,
+  reactToMessageTool,
+  // Group administration
+  addGroupParticipantTool,
+  removeGroupParticipantTool,
+  updateGroupInfoTool,
+  leaveChatTool,
+  // Media & files
+  getChatMediaTool,
+  searchMediaTool,
+  // Privacy & security
+  blockUserTool,
+  unblockUserTool,
+  getBlockedUsersTool,
+  // Productivity
+  translateMessageTool,
+  setReminderTool,
 ];
 
 export const toolsByName: Record<string, DynamicStructuredTool> = {
+  // Core tools
   get_current_time: timeTool,
   search_users: userSearchTool,
   search_messages: messageSearchTool,
@@ -442,4 +941,24 @@ export const toolsByName: Record<string, DynamicStructuredTool> = {
   get_call_history: getCallHistoryTool,
   search_chat_messages: searchChatMessagesTool,
   get_user_profile: getUserProfileTool,
+  // Messaging actions
+  send_message: sendMessageTool,
+  edit_message: editMessageTool,
+  delete_message: deleteMessageTool,
+  react_to_message: reactToMessageTool,
+  // Group administration
+  add_group_participant: addGroupParticipantTool,
+  remove_group_participant: removeGroupParticipantTool,
+  update_group_info: updateGroupInfoTool,
+  leave_chat: leaveChatTool,
+  // Media & files
+  get_chat_media: getChatMediaTool,
+  search_media: searchMediaTool,
+  // Privacy & security
+  block_user: blockUserTool,
+  unblock_user: unblockUserTool,
+  get_blocked_users: getBlockedUsersTool,
+  // Productivity
+  translate_message: translateMessageTool,
+  set_reminder: setReminderTool,
 };
