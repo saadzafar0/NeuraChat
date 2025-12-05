@@ -10,6 +10,8 @@ erDiagram
         string status_message
         timestamp last_seen
         timestamp created_at
+        text ai_provider
+        text ai_model
     }
 
     %% LINKING USERS TO CHATS (Crucial missing piece)

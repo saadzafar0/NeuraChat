@@ -545,6 +545,28 @@
           }
         },
         {
+          "name": "Update AI Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"gemini\",\n  \"model\": \"gemini-1.5-flash\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "preferences"]
+            },
+            "description": "Sets the user's preferred AI provider. All subsequent AI requests will use this provider unless overridden in the request body."
+          }
+        },
+        {
           "name": "Chat with AI Agent",
           "request": {
             "method": "POST",
@@ -556,14 +578,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sessionId\": \"{{userId}}\", \n  \"query\": \"Can you help me draft an email about the project delay?\"\n}"
+              "raw": "{\n  \"sessionId\": \"chat-session-123\", \n  \"query\": \"Can you help me draft an email about the project delay?\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/ai/chat",
               "host": ["{{baseUrl}}"],
               "path": ["api", "ai", "chat"]
             },
-            "description": "Conversational endpoint. \n\n- `sessionId`: Uses this to fetch previous context (last 5 messages) from the database.\n- `query`: The user's new message.\n\nThe backend automatically fetches context, sends it to the AI, and saves the new interaction to Supabase."
+            "description": "Agentic Chat Endpoint.\n\n**Logic**: Uses LangChain `AgentService`.\n**Memory**: Automatically loads conversation history from Supabase based on `sessionId`.\n**Tools**: Capable of using defined tools (e.g., getting current time, database lookups).\n\nReturns the agent's response and saves the interaction to the database."
           }
         }
       ]

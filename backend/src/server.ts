@@ -17,9 +17,13 @@ import notificationRoutes from './routes/notificationRoutes';
 dotenv.config();
 
 // Initialize database
+
+import { supabase as exportedSupabase } from './config/database';
 let dbInitialized = false;
 try {
-  initializeDatabase();
+  const supabaseClient = initializeDatabase();
+  // Assign to exported variable for global use
+  (exportedSupabase as any) = supabaseClient;
   dbInitialized = true;
 } catch (error) {
   console.error('❌ Failed to initialize database:', error);

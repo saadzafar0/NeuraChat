@@ -18,7 +18,7 @@ export const getChatMessages = async (req: AuthRequest, res: Response): Promise<
     const { limit = 50, offset = 0 } = req.query;
     const userId = req.userId;
 
-    // Verify user is a participant
+    // Verifyundefined user is a participant
     const { data: participant, error: participantError } = await supabase
       .from('chat_participants')
       .select('chat_id')
