@@ -27,7 +27,7 @@ router.use((req, res, next) => {
 // 2. Authentication Middleware 
 router.use(authenticateToken);
 
-// 3. Debug Check (Third - To verify Auth worked)
+// 3. Debug Check 
 router.use((req, res, next) => {
   console.log('Step 3: Post-Auth Check. User:', (req as any).user);
   next();
