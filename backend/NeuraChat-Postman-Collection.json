@@ -275,7 +275,13 @@
             "url": {
               "raw": "{{baseUrl}}/api/chats/{{chatId}}/participants/user-id-to-remove",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "chats", "{{chatId}}", "participants", "user-id-to-remove"]
+              "path": [
+                "api",
+                "chats",
+                "{{chatId}}",
+                "participants",
+                "user-id-to-remove"
+              ]
             }
           }
         }
@@ -564,6 +570,42 @@
               "path": ["api", "ai", "preferences"]
             },
             "description": "Sets the user's preferred AI provider. All subsequent AI requests will use this provider unless overridden in the request body."
+          }
+        },
+        {
+          "name": "Get Main Session ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "session"]
+            },
+            "description": "Retrieves the user's persistent 'General Assistant' session. If it doesn't exist, it creates one automatically. \n\nUse the returned `session.id` for the `/chat` endpoint."
+          }
+        },
+        {
+          "name": "Get Main Session History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/session/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "session", "history"]
+            },
+            "description": "Returns the chat hisory of the user with ai agent"
           }
         },
         {

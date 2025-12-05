@@ -10,7 +10,9 @@ import {
   translateMessage, 
   chatWithAgent, 
   getAvailableModels,
-  updateAIPreferences
+  updateAIPreferences,
+  getMainSession,
+  getMainSessionHistory
 } from '../controllers/aiController';
 
 const router = Router();
@@ -43,6 +45,8 @@ router.post('/translate', translateMessage);
 
 // --- AI Agent ---
 router.post('/chat', chatWithAgent);
+router.get('/session', getMainSession)
+router.get("/session/history", getMainSessionHistory)
 
 // --- Configuration ---
 router.get('/models', getAvailableModels);

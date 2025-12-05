@@ -69,25 +69,68 @@ To add a new AI provider (e.g., for OpenAI):
     // In AIService.ts
     import { OpenAIAdapter } from './adapters/OpenAIAdapter';
 
-    // ... in constructor
-    switch (providerType) {
-      // ... other cases
-      case 'openai':
-        this.provider = new OpenAIAdapter();
-        break;
-      // ...
-    }
-    ```
-4.  **Update `.env`**: Add any required environment variables (like `OPENAI_API_KEY`) to the `.env` file and the documentation.
 
-## Testing
+    # NeuraChat AI Service
 
-A test script is available to verify that the configured AI provider is working correctly. It tests grammar correction, summarization, and agent chat.
+    This module powers NeuraChat's agentic copilot AI, supporting multi-provider LLMs (Gemini, HuggingFace, Ollama) and a dynamic, user-friendly toolset. All features are designed for extensibility, usability, and robust database alignment.
 
-To run the tests, execute the following command from the `backend/` directory:
+    ## Key Features
 
-```bash
-ts-node src/services/ai/tests/test-adapters.ts
-```
+    - Multi-provider LLM support (Gemini, HuggingFace, Ollama)
+    - Adapter pattern for easy provider integration
+    - Agentic copilot with dynamic, extensible tools
+    - All agent tools accept usernames and chat names (not IDs)
+    - Table names and joins fully aligned with EERD
+    - Supabase-backed chat, user, and AI history
+    - REST and Socket.IO APIs
 
-Make sure your `.env` file is properly configured before running the test.
+    ## Directory Structure
+
+    - `AIService.ts`: Main entry for AI operations
+    - `adapters/`: Provider adapters (Gemini, HuggingFace, Ollama)
+    - `agent/AgentService.ts`: Agentic copilot orchestrator
+    - `agent/tools/index.ts`: Agent tools (search, chat, notifications, etc.)
+    - `agent/history/SupabaseHistory.ts`: Chat history via Supabase
+    - `config/prompts.ts`: Prompt templates
+    - `interfaces/AIProvider.ts`: Provider interface
+    - `tests/`: Adapter and agent tests
+
+    ## Usage
+
+    1. Configure Supabase and providers in `.env`.
+    2. Use `AIService` for direct LLM calls, or `AgentService` for agentic copilot features.
+    3. All agent tools accept usernames and chat names for maximum usability (IDs are resolved internally).
+    4. Table names and joins are strictly aligned with the EERD for robust querying and data integrity.
+
+    ## Agentic Copilot Tools
+
+    The agentic copilot exposes a rich set of tools, including:
+
+    - Get current time
+    - Search users (by username or full name)
+    - Search messages (global and per-chat)
+    - Summarize chat (last 10 messages)
+    - Fetch notifications
+    - Update user status message
+    - Create chat (private/group, by usernames)
+    - List user's chats
+    - List chat participants
+    - Get AI session history
+    - Get call history
+    - Get user profile
+
+    See `agent/tools/index.ts` for full tool definitions and schemas. All tools are preference-aware and resolve names to IDs internally.
+
+    ## Extending the Agent
+
+    Add new tools in `agent/tools/index.ts` using the `DynamicStructuredTool` pattern. Always resolve names to IDs internally for user-friendliness. Follow EERD table naming for all queries.
+
+    ## Testing
+
+    Run tests in `tests/` to validate adapters and agent logic. Ensure new tools and features are covered.
+
+    ## Notes
+
+    - All queries use correct table names per EERD.
+    - All tools are preference-aware and user-friendly.
+    - Frontend integration is ongoing; backend is ready for agentic copilot features.

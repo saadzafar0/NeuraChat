@@ -140,8 +140,10 @@ export const chatWithAgent = async (req: Request, res: Response) => {
 
   try {
     const config = await resolveConfig(req);
+    const userId = (req as any).user?.userId;
 
-    const responseText = await agentService.execute(sessionId, query);
+    // Pass userId to agent for context-aware responses
+    const responseText = await agentService.execute(sessionId, query, userId);
 
     // Save the Interaction manually 
     await supabase.from('AIInteraction').insert({
@@ -151,14 +153,79 @@ export const chatWithAgent = async (req: Request, res: Response) => {
       intent: 'info' 
     });
 
-    res.json({ response: responseText, usedProvider: 'gemini-agent' });
+    res.json({ response: responseText, usedProvider: config.provider || 'gemini-agent' });
   } catch (err: any) {
     console.error('Agent Error:', err);
     res.status(500).json({ error: 'AI Agent failed to respond' });
   }
 };
 
-// 9. Update AI preference 
+// 9. GET or CREATE the main session
+export const getMainSession = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    // 1. Try to find an existing "General" session
+    let { data: session } = await supabase
+      .from('ai_agent_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('title', 'General Assistant') // We use a fixed title to identify it
+      .single();
+
+    // 2. If no session exists, create one automatically
+    if (!session) {
+      console.log('No session found. Creating new global session for user...');
+      const { data: newSession, error: createError } = await supabase
+        .from('ai_agent_sessions')
+        .insert({
+          user_id: userId,
+          title: 'General Assistant', // Hardcoded name for the singleton
+        })
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      session = newSession;
+    }
+
+    res.json({ session });
+  } catch (err: any) {
+    console.error('Session Error:', err);
+    res.status(500).json({ error: 'Failed to retrieve AI session' });
+  }
+};
+
+// 10. Get Session History
+export const getMainSessionHistory = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+
+  try {
+    // 1. Find the main session ID for this user
+    const { data: session } = await supabase
+      .from('ai_agent_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('title', 'General Assistant')
+      .single();
+
+    if (!session) return res.json({ history: [] }); // No session = No history yet
+
+    // 2. Fetch messages
+    const { data: interactions } = await supabase
+      .from('AIInteraction')
+      .select('*')
+      .eq('session_id', session.id)
+      .order('created_at', { ascending: true });
+
+    res.json({ history: interactions });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// 11. Update AI preference 
 export const updateAIPreferences = async (req: Request, res: Response) => {
   console.log('DEBUG: Full req.user object:', (req as any).user);
   const userId = (req as any).user?.userId;

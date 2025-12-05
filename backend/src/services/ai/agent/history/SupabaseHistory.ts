@@ -12,7 +12,7 @@ export class SupabaseHistory extends BaseListChatMessageHistory {
   // Fetch Context: Read existing Q&A pairs and converts to LangChain format
   async getMessages(): Promise<BaseMessage[]> {
     const { data, error } = await supabase
-      .from('AIInteraction')
+      .from('ai_interactions')
       .select('user_query, ai_response')
       .eq('session_id', this.sessionId)
       .order('created_at', { ascending: true }); 
