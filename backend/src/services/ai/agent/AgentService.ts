@@ -46,7 +46,7 @@ export class AgentService {
     let userPreferences: UserPreferences = {};
     let systemPrompt = `You are NeuraChat AI Assistant, a powerful copilot integrated into the NeuraChat messaging application. 
 
-Your capabilities include:
+Capabilities included:
 
 **Core Features:**
 - Searching for users and messages
