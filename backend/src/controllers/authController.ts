@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { getSupabaseClient } from '../config/database';
-import jwt, { SignOptions } from 'jsonwebtoken';
-import { compareSync } from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-// Register new user
+// --- Register ---
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
@@ -11,83 +10,67 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     console.log('Registering user:', email);
 
-    // Create auth user in Supabase Auth
+    // 1. Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          username,
-          full_name,
-        },
+        data: { username, full_name },
         emailRedirectTo: undefined
       }
     });
 
-    console.log('Supabase Auth response:', { user: authData?.user?.id, error: authError?.message });
-
-    if (authError) {
-      console.error('Auth error:', authError);
-      res.status(400).json({ error: authError.message });
+    if (authError || !authData.user) {
+      res.status(400).json({ error: authError?.message || 'User creation failed' });
       return;
     }
 
-    if (!authData.user) {
-      console.error('No user data returned');
-      res.status(400).json({ error: 'User creation failed' });
-      return;
-    }
-
-    // REMOVE the existing user check and insert
-    // The trigger already created the user, so just fetch it
-    console.log('Fetching user profile created by trigger...');
+    // 2. Fetch profile (created by trigger)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
       .single();
 
-    console.log('User profile fetched:', { success: !!userData, error: userError?.message });
-
     if (userError || !userData) {
-      console.error('User profile error:', userError);
       res.status(400).json({ error: 'Failed to create user profile' });
       return;
     }
 
-    // Generate JWT token
-    console.log('Generating JWT token...');
+    // 3. Generate Token
     const token = jwt.sign(
       { userId: authData.user.id },
       process.env.JWT_SECRET!,
       { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any }
     );
 
-    // Set token in httpOnly cookie
+    // 4. Set Cookie with Path '/' (CRITICAL FIX)
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000, 
+      path: '/' 
     });
 
-    console.log('Sending success response...');
     res.status(201).json({
       message: 'User registered successfully',
       user: userData,
+      token 
     });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-// Login user
+
+// --- Login ---
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
     const { email, password } = req.body;
 
-    // Authenticate with Supabase Auth
+    // 1. Authenticate
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -98,7 +81,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Get user profile
+    // 2. Get Profile
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -110,30 +93,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Update last seen
-    await supabase
-      .from('users')
-      .update({ last_seen: new Date().toISOString() })
-      .eq('id', data.user.id);
+    // 3. Update Last Seen
+    await supabase.from('users').update({ last_seen: new Date().toISOString() }).eq('id', data.user.id);
 
-    // Generate JWT token
+    // 4. Generate Token
     const token = jwt.sign(
       { userId: data.user.id },
       process.env.JWT_SECRET!,
       { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any }
     );
 
-    // Set token in httpOnly cookie
+    // 5. Set Cookie with Path '/' (CRITICAL FIX)
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/' 
     });
 
     res.json({
       message: 'Login successful',
       user: userData,
+      token 
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -141,42 +123,26 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Logout user
+// --- Logout ---
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const supabase = getSupabaseClient();
-    // Get token from cookie
-    const token = req.cookies?.token;
-
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || '') as { userId: string };
-      
-      // Update last seen
-      await supabase
-        .from('users')
-        .update({ last_seen: new Date().toISOString() })
-        .eq('id', decoded.userId);
-    }
-
-    // Clear the token cookie
     res.clearCookie('token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
+      path: '/' 
     });
 
     res.json({ message: 'Logout successful' });
   } catch (error) {
-    console.error('Logout error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Get current user
+// --- Get Current User ---
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
-    // Get token from cookie
     const token = req.cookies?.token;
 
     if (!token) {

@@ -1,6 +1,6 @@
 // backend/src/routes/aiRoutes.ts
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth'; // Ensure this matches your middleware export
+import { authenticateToken } from '../middleware/auth';
 import { 
   correctGrammar, 
   summarizeMessage, 
@@ -9,12 +9,31 @@ import {
   changeTone, 
   translateMessage, 
   chatWithAgent, 
-  getAvailableModels 
+  getAvailableModels,
+  updateAIPreferences,
+  getMainSession,
+  getMainSessionHistory
 } from '../controllers/aiController';
 
 const router = Router();
 
+router.use((req, res, next) => {
+  console.log('---------------------------------');
+  console.log('Incoming Request to:', req.path);
+  console.log('1. Cookies (Parsed):', req.cookies); 
+  console.log('2. Authorization Header:', req.headers.authorization);
+  console.log('---------------------------------');
+  next();
+});
+
+// 2. Authentication Middleware 
 router.use(authenticateToken);
+
+// 3. Debug Check 
+router.use((req, res, next) => {
+  console.log('Step 3: Post-Auth Check. User:', (req as any).user);
+  next();
+});
 
 // --- Text Utilities ---
 router.post('/grammar', correctGrammar);
@@ -26,8 +45,11 @@ router.post('/translate', translateMessage);
 
 // --- AI Agent ---
 router.post('/chat', chatWithAgent);
+router.get('/session', getMainSession)
+router.get("/session/history", getMainSessionHistory)
 
 // --- Configuration ---
 router.get('/models', getAvailableModels);
+router.put('/preferences', updateAIPreferences);
 
 export default router;

@@ -37,7 +37,7 @@ export type Call = {
   end_time?: Date;
 };
 
-export type AIAgentSession = {
+export type ai_agent_sessions = {
   id: string;
   user_id: string;
   title?: string;
@@ -45,7 +45,7 @@ export type AIAgentSession = {
   updated_at: Date;
 };
 
-export type AIInteraction = {
+export type ai_interactions = {
   id: string;
   session_id: string;
   user_query: string;
