@@ -10,6 +10,7 @@ export default function Sidebar() {
 
   const navItems = [
     { href: '/dashboard', icon: '💬', label: 'Chats' },
+    { href: '/ai-agent', icon: '⚡', label: 'AI Agent' },
     { href: '/calls', icon: '📞', label: 'Calls' },
     { href: '/settings', icon: '⚙️', label: 'Settings' },
   ];

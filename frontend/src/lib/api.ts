@@ -226,6 +226,38 @@ class APIClient {
       body: { message, action },
     });
   }
+
+  /**
+   * Get or create the main AI agent session for the current user
+   * This is a singleton session that persists across the app
+   */
+  async getMainAISession() {
+    return this.request('/ai/session', {
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Get the conversation history for the main AI session
+   * Returns all past interactions (queries and responses)
+   */
+  async getMainSessionHistory() {
+    return this.request('/ai/session/history', {
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Send a message to the AI agent
+   * @param sessionId - The AI session ID
+   * @param query - The user's message/query
+   */
+  async chatWithAgent(sessionId: string, query: string) {
+    return this.request('/ai/chat', {
+      method: 'POST',
+      body: { sessionId, query },
+    });
+  }
 }
 
 // Export singleton instance
