@@ -2,7 +2,6 @@ import { supabase } from '../../config/database';
 import { io } from '../../server'; 
 import { UUID } from 'crypto'; 
 
-// Define types based on your EERD
 export type NotificationType = 'message' | 'call' | 'system' | 'ai_summary';
 
 export interface CreateNotificationDTO {

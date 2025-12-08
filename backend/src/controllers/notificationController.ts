@@ -1,11 +1,15 @@
 import { Request, Response } from 'express';
 import { NotificationService } from '../services/Notifications/NotificationService';
 
-export const getNotifications = async (req: Request, res: Response): Promise<void> => {
+type AuthRequest = Request & {
+  userId?: string;
+};
+
+export const getNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id; 
+    const userId = req.userId;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = 20;
+    const limit = 50; // Last 50 notifications per task requirements
     const offset = (page - 1) * limit;
 
     if (!userId) {
@@ -20,10 +24,15 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const markRead = async (req: Request, res: Response): Promise<void> => {
+export const markRead = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
     const updated = await NotificationService.markAsRead(id, userId);
     res.json(updated);
@@ -32,9 +41,15 @@ export const markRead = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const markAllRead = async (req: Request, res: Response): Promise<void> => {
+export const markAllRead = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     await NotificationService.markAllAsRead(userId);
     res.json({ message: 'All notifications marked as read' });
   } catch (error: any) {
