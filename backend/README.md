@@ -1,24 +1,24 @@
 # NeuraChat Backend API
 
-A comprehensive REST API for the NeuraChat messaging platform with end-to-end encryption support.
+A comprehensive REST API for the NeuraChat messaging platform with real-time messaging and file sharing.
 
-**Note**: Voice/video call functionality is yet to be implemented.
-**Note**: AI agent functionality is yet to be implemented.
-**Note**: Notification functionality is yet to be implemented.
+**✅ Implemented**: Authentication, Messaging, File Sharing, AI Features
+**⚠️ Not Yet Implemented**: Voice/video calls
 
 ## Tech Stack
 
 - **Runtime**: Node.js (v18+) with TypeScript (v5.3.3)
 - **Framework**: Express.js (v4.18.2)
 - **Database**: Supabase (PostgreSQL) - @supabase/supabase-js (v2.39.0)
+- **Storage**: Supabase Storage - File uploads and media management
 - **Authentication**: JWT (jsonwebtoken v9.0.2) + Cookie-based sessions
 - **Real-time**: Socket.IO (v4.6.1) - WebSocket communication
+- **File Upload**: multer (v1.4.5-lts.1) + mime-types (v2.1.35)
 - **Security**:
   - bcrypt (v5.1.1) - Password hashing
   - cookie-parser (v1.4.6) - Cookie management
   - CORS (v2.8.5) - Cross-origin resource sharing
 - **Validation**: express-validator (v7.0.1)
-- **File Upload**: multer (v1.4.5-lts.1)
 - **Development Tools**:
   - ts-node (v10.9.2) - TypeScript execution
   - nodemon (v3.0.2) - Auto-restart on file changes
@@ -70,7 +70,14 @@ FRONTEND_URL=http://localhost:3000
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY`: Get these from your Supabase project settings
 - `NODE_ENV`: Set to `production` in production environments
 
-4. Run the development server:
+**Supabase Storage Setup (Required for File Sharing):**
+
+1. Go to your Supabase project dashboard
+2. Navigate to **Storage** section
+3. Create a new bucket named `chat-media`
+4. Set bucket to **Public** (Settings → Make bucket public)
+5. This allows file uploads and downloads to work properly
+6. Run the development server:
 
 ```bash
 npm run dev
@@ -228,6 +235,7 @@ GET /api/chats/:chatId
 **Note**: Sending messages is done via Socket.IO only (see WebSocket Events section below)
 
 Use Socket.IO to send messages:
+
 ```javascript
 socket.emit('send-message', {
   chat_id: 'chat-123',
@@ -263,6 +271,87 @@ DELETE /api/messages/:messageId
 
 ```
 
+### Media/File Sharing Endpoints
+
+#### Upload File
+
+Upload a file to a chat (images, videos, documents, etc.)
+
+```http
+POST /api/media/upload
+Content-Type: multipart/form-data
+
+Form Fields:
+- file: <file data>
+- chatId: "chat-uuid"
+- messageContent: "Check out this file!" (optional)
+```
+
+**JavaScript Example:**
+
+```javascript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('chatId', 'chat-123');
+formData.append('messageContent', 'Optional message');
+
+fetch('/api/media/upload', {
+  method: 'POST',
+  credentials: 'include',
+  body: formData
+});
+```
+
+**Restrictions:**
+
+- Max file size: 50MB
+- Allowed types: images, videos, audio, documents, archives
+- User must be a chat participant
+
+**Response:** Returns file metadata, storage URL, and optional message data
+
+#### Get Chat Media
+
+```http
+GET /api/media/chat/:chatId?type=image&limit=50&offset=0
+
+Query Parameters:
+- type: Filter by type (image, video, audio, document, file)
+- limit: Number of files (default: 50)
+- offset: Pagination offset (default: 0)
+```
+
+#### Get Media Statistics
+
+```http
+GET /api/media/chat/:chatId/stats
+
+Returns counts by file type and total storage used
+```
+
+#### Get File Details
+
+```http
+GET /api/media/:fileId
+
+```
+
+#### Download File
+
+```http
+GET /api/media/:fileId/download
+
+Returns download URL and file metadata
+```
+
+#### Delete File
+
+```http
+DELETE /api/media/:fileId
+
+Only uploader or chat admin can delete
+```
+
 ### Call Endpoints
 
 **Note**: Voice/Video call functionality is yet to be implemented.
@@ -291,6 +380,7 @@ GET /api/ai/models
 ```
 
 **Response**:
+
 ```json
 {
   "models": ["gemini-1.5-flash", "deepseek-coder", "llama3"]
@@ -314,6 +404,7 @@ Content-Type: application/json
 ```
 
 **Response**:
+
 ```json
 {
   "corrected": "I want to go to the store now."
@@ -336,6 +427,7 @@ Content-Type: application/json
 ```
 
 **Response**:
+
 ```json
 {
   "summary": "NeuraChat is an AI-powered application designed to improve communication through features like grammar correction and summarization."
@@ -358,6 +450,7 @@ Content-Type: application/json
 ```
 
 **Response**:
+
 ```json
 {
   "enhanced": "I propose we delay the meeting, as I have a scheduling conflict."
@@ -380,6 +473,7 @@ Content-Type: application/json
 ```
 
 **Response**:
+
 ```json
 {
   "expanded": "The project timeline has been delayed due to unforeseen supply chain disruptions. We are actively monitoring the situation and will provide a revised schedule as soon as possible."
@@ -403,9 +497,11 @@ Content-Type: application/json
 ```
 
 **Body Parameters**:
+
 - `tone` (string, required): The target tone. Options: `casual`, `formal`, `empathetic`.
 
 **Response**:
+
 ```json
 {
   "rewritten": "I noticed the deadline was missed. Let's touch base to see how we can work together to get this completed."
@@ -429,9 +525,11 @@ Content-Type: application/json
 ```
 
 **Body Parameters**:
+
 - `targetLang` (string, required): The language to translate the text into.
 
 **Response**:
+
 ```json
 {
   "translated": "Hola, bienvenido a NeuraChat."
@@ -455,10 +553,12 @@ Content-Type: application/json
 ```
 
 **Body Parameters**:
+
 - `sessionId` (string, required): A unique identifier for the conversation session. The server uses this to retrieve recent chat history.
 - `query` (string, required): The user's new message or question.
 
 **Response**:
+
 ```json
 {
   "response": "You previously asked me about the project timeline."
@@ -597,6 +697,8 @@ The server supports real-time communication via Socket.IO on the same port as th
 | `new-message`      | `{ id, chat_id, sender_id, content, users: {...}, ... }` | New message received (from REST or Socket.IO)    |
 | `message-updated`  | `{ id, chat_id, content, updated_at }`                   | Message was edited                               |
 | `message-deleted`  | `{ messageId: string }`                                  | Message was deleted                              |
+| `new-file`         | `{ file, message, uploadedBy }`                          | New file uploaded to chat                        |
+| `file-removed`     | `{ fileId, chatId, deletedBy }`                          | File deleted from chat                           |
 | `user-typing`      | `{ userId: string, chatId: string }`                     | User started typing                              |
 | `user-stop-typing` | `{ userId: string, chatId: string }`                     | User stopped typing                              |
 | `error`            | `{ message: string }`                                    | Error occurred (e.g., unauthorized, not in chat) |
@@ -633,6 +735,18 @@ socket.on('message-updated', (message) => {
 // Listen for message deletions
 socket.on('message-deleted', ({ messageId }) => {
   console.log('Message deleted:', messageId);
+});
+
+// Listen for file uploads
+socket.on('new-file', (data) => {
+  console.log('New file uploaded:', data.file);
+  // data includes: { file, message, uploadedBy }
+});
+
+// Listen for file deletions
+socket.on('file-removed', (data) => {
+  console.log('File removed:', data.fileId);
+  // data includes: { fileId, chatId, deletedBy }
 });
 
 // Listen for errors
@@ -692,14 +806,22 @@ The API uses the following Supabase (PostgreSQL) tables:
   - `reply_to` (uuid, nullable, foreign key → messages)
   - `created_at` (timestamp)
   - `updated_at` (timestamp)
-- **`media_files`** - Media attachments for messages
+- **`media_files`** - Media attachments and file sharing
 
   - `id` (uuid, primary key)
-  - `message_id` (uuid, foreign key → messages)
-  - `file_url` (text)
-  - `file_type` (text)
-  - `file_size` (integer)
+  - `message_id` (uuid, nullable, foreign key → messages)
+  - `chat_id` (uuid, foreign key → chats)
+  - `file_name` (text)
+  - `file_type` (text) - Category: image, video, audio, document, file
+  - `file_size` (integer) - Size in bytes
+  - `mime_type` (text) - MIME type
+  - `storage_url` (text) - Public URL from Supabase Storage
+  - `storage_path` (text) - Internal storage path
+  - `thumbnail_url` (text, nullable) - Thumbnail for images/videos
+  - `uploaded_by` (uuid, foreign key → users)
+  - `upload_status` (enum: 'pending' | 'uploading' | 'completed' | 'failed')
   - `created_at` (timestamp)
+  - `uploaded_at` (timestamp)
 
 ### Call Management Tables
 
@@ -741,6 +863,7 @@ The API uses the following Supabase (PostgreSQL) tables:
   - `updated_at` (timestamp)
 - **`ai_interactions`** - AI conversation history
   **Note**: The `ai_interactions` table is actively used for storing AI chat session history.
+
   - `id` (uuid, primary key)
   - `session_id` (uuid, foreign key → ai_agent_sessions)
   - `user_query` (text)
@@ -844,6 +967,7 @@ backend/
 │   │   ├── messageController.ts     # Message CRUD operations
 │   │   ├── callController.ts        # Voice/video call management
 │   │   ├── aiController.ts          # AI agent interactions
+│   │   ├── mediaController.ts       # File upload and media management
 │   │   └── notificationController.ts # User notifications
 │   ├── middleware/
 │   │   └── auth.ts                  # JWT cookie authentication middleware
@@ -854,7 +978,13 @@ backend/
 │   │   ├── messageRoutes.ts         # Message endpoint routes
 │   │   ├── callRoutes.ts            # Call endpoint routes
 │   │   ├── aiRoutes.ts              # AI endpoint routes
+│   │   ├── mediaRoutes.ts           # Media/file sharing routes
 │   │   └── notificationRoutes.ts    # Notification endpoint routes
+│   ├── services/
+│   │   └── storageService.ts        # Supabase Storage file operations
+│   ├── config/
+│   │   ├── database.ts              # Supabase client singleton
+│   │   └── multer.ts                # File upload configuration
 │   ├── types/
 │   │   └── index.ts                 # TypeScript type definitions
 │   └── server.ts                    # Express app & Socket.IO server setup

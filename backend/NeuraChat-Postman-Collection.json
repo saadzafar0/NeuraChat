@@ -24,6 +24,11 @@
       "key": "messageId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "fileId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -371,6 +376,144 @@
               "path": ["api", "messages", "{{messageId}}", "reactions"]
             },
             "description": "Add an emoji reaction to a message.\n\nNote: Reaction functionality may need to be implemented in the backend."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media/File Sharing",
+      "description": "Upload, manage, and share files in chats.\n\n📁 Features:\n- Upload files up to 50MB\n- Support for images, videos, audio, documents\n- File metadata tracking\n- Real-time file sharing notifications\n- Download and delete capabilities\n\n🔐 Security:\n- Files stored in Supabase Storage\n- Access restricted to chat participants\n- Only uploader or admin can delete",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "chatId",
+                  "value": "{{chatId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "messageContent",
+                  "value": "Check out this file!",
+                  "type": "text",
+                  "description": "Optional message to send with file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/media/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "upload"]
+            },
+            "description": "Upload a file to a chat.\n\n✅ Max size: 50MB\n✅ Allowed: images, videos, audio, documents, archives\n✅ Creates message automatically\n✅ Broadcasts to chat via Socket.IO"
+          }
+        },
+        {
+          "name": "Get Chat Media",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/chat/{{chatId}}?type=image&limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "chat", "{{chatId}}"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "image",
+                  "description": "Filter by: image, video, audio, document, file"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all media files in a chat with optional filtering and pagination."
+          }
+        },
+        {
+          "name": "Get Media Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/chat/{{chatId}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "chat", "{{chatId}}", "stats"]
+            },
+            "description": "Get statistics about media files in a chat (counts by type, total size)."
+          }
+        },
+        {
+          "name": "Get File Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:fileId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", ":fileId"],
+              "variable": [
+                {
+                  "key": "fileId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get detailed information about a specific file."
+          }
+        },
+        {
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:fileId/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", ":fileId", "download"],
+              "variable": [
+                {
+                  "key": "fileId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get download URL for a file."
+          }
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:fileId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", ":fileId"],
+              "variable": [
+                {
+                  "key": "fileId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Delete a file. Only the uploader or chat admin can delete."
           }
         }
       ]
