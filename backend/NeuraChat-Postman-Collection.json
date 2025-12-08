@@ -667,11 +667,18 @@
             "method": "PATCH",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/read",
+              "raw": "{{baseUrl}}/api/notifications/:id",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "notifications", "{{notificationId}}", "read"]
+              "path": ["api", "notifications", ":id"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "",
+                  "description": "The ID of the notification to mark as read. Set this variable before sending the request."
+                }
+              ]
             },
-            "description": "Mark a specific notification as read.\n\n✅ Updates is_read to true\n✅ Returns updated notification\n\nRestrictions:\n- Only the notification owner can mark it as read"
+            "description": "Mark a specific notification as read.\n\n**Path Parameter:**\n- `notificationId` (string): The ID of the notification to mark as read.\n\n✅ Updates is_read to true\n✅ Returns updated notification\n\nRestrictions:\n- Only the notification owner can mark it as read"
           }
         },
         {
