@@ -24,6 +24,11 @@
       "key": "messageId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -633,7 +638,8 @@
       ]
     },
     {
-      "name": "Notifications (Not Implemented)",
+      "name": "Notifications",
+      "description": "Real-time notification system for messages, calls, and system events.\n\n🔔 Features:\n- Push notifications via Socket.IO\n- Persistent storage in database\n- Mark as read (single/all)\n- Pagination support\n\n📡 Real-Time:\nListen for 'notification:new' event on Socket.IO:\n```javascript\nsocket.on('notification:new', (notification) => {\n  console.log('New notification:', notification);\n});\n```\n\n🔐 Authentication:\nAll routes require valid login cookie.",
       "item": [
         {
           "name": "Get Notifications",
@@ -641,20 +647,51 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/notifications?limit=50&offset=0",
+              "raw": "{{baseUrl}}/api/notifications?page=1",
               "host": ["{{baseUrl}}"],
               "path": ["api", "notifications"],
               "query": [
                 {
-                  "key": "limit",
-                  "value": "50"
-                },
-                {
-                  "key": "offset",
-                  "value": "0"
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination (50 notifications per page)"
                 }
               ]
-            }
+            },
+            "description": "Retrieve the last 50 notifications for the authenticated user.\n\n✅ Ordered by created_at descending (newest first)\n✅ Includes read/unread status\n✅ Pagination support\n\nResponse:\n```json\n{\n  \"notifications\": [...],\n  \"total\": 150\n}\n```"
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", ":id"],
+              "variable": [
+                {
+                  "key": "notificationId",
+                  "value": "",
+                  "description": "The ID of the notification to mark as read. Set this variable before sending the request."
+                }
+              ]
+            },
+            "description": "Mark a specific notification as read.\n\n**Path Parameter:**\n- `notificationId` (string): The ID of the notification to mark as read.\n\n✅ Updates is_read to true\n✅ Returns updated notification\n\nRestrictions:\n- Only the notification owner can mark it as read"
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "read-all"]
+            },
+            "description": "Mark all unread notifications as read for the authenticated user.\n\n✅ Bulk update operation\n✅ Returns success message\n\nResponse:\n```json\n{\n  \"message\": \"All notifications marked as read\"\n}\n```"
           }
         }
       ]

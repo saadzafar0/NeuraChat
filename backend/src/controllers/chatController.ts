@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getSupabaseClient } from '../config/database';
+import { NotificationService } from '../services/Notifications/NotificationService';
 
 
 type AuthRequest = Request & {
@@ -57,6 +58,18 @@ export const createChat = async (req: AuthRequest, res: Response): Promise<void>
       await supabase.from('chats').delete().eq('id', chatData.id);
       res.status(400).json({ error: participantsError.message });
       return;
+    }
+
+    // For group chats, notify all other participants (except creator)
+    if (type === 'group') {
+      for (const participantId of otherParticipants) {
+        await NotificationService.createNotification({
+          userId: participantId,
+          type: 'system',
+          title: 'New Group',
+          content: `You were added to ${name}`,
+        });
+      }
     }
 
     res.status(201).json({ message: 'Chat created successfully', chat: chatData });
@@ -262,6 +275,21 @@ export const addParticipant = async (req: AuthRequest, res: Response): Promise<v
       res.status(400).json({ error: error.message });
       return;
     }
+
+    // Get chat details for notification
+    const { data: chatData } = await supabase
+      .from('chats')
+      .select('name, type')
+      .eq('id', chatId)
+      .single();
+
+    // Send system notification to the added user
+    await NotificationService.createNotification({
+      userId: newUserId,
+      type: 'system',
+      title: 'New Group',
+      content: `You were added to ${chatData?.name || 'a new chat'}`,
+    });
 
     res.status(201).json({ message: 'Participant added successfully', participant: data });
   } catch (error) {
