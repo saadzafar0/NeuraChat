@@ -87,6 +87,23 @@ class SocketClient {
     }
   }
 
+  // Generic event methods
+  on(event: string, callback: (...args: any[]) => void) {
+    this.socket?.on(event, callback);
+  }
+
+  off(event: string, callback?: (...args: any[]) => void) {
+    if (callback) {
+      this.socket?.off(event, callback);
+    } else {
+      this.socket?.off(event);
+    }
+  }
+
+  emit(event: string, ...args: any[]) {
+    this.socket?.emit(event, ...args);
+  }
+
   // Event listeners
   onNewMessage(callback: (message: any) => void) {
     this.socket?.on('new-message', callback);

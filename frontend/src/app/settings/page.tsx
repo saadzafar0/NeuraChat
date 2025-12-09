@@ -1,14 +1,30 @@
-// app/settings/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
+import EditProfileModal from '@/components/EditProfileModal';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  
+  // Local state to reflect updates immediately
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.full_name || '');
+      setUsername(user.username || '');
+      setStatusMessage(user.status_message || '');
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -28,6 +44,13 @@ export default function SettingsPage() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleProfileUpdated = (updated: { full_name: string; username: string; status_message: string }) => {
+    setDisplayName(updated.full_name);
+    setUsername(updated.username);
+    setStatusMessage(updated.status_message);
+    setIsEditProfileOpen(false);
   };
 
   return (
@@ -60,14 +83,25 @@ export default function SettingsPage() {
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
               
               <div className="relative z-10">
-                <h2 className="text-xl font-semibold text-gray-100 mb-6">Profile</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-100">Profile</h2>
+                  <button
+                    onClick={() => setIsEditProfileOpen(true)}
+                    className="relative group/btn"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-50 group-hover/btn:opacity-75 transition-opacity"></div>
+                    <div className="relative px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500 hover:to-blue-600 text-cyan-400 hover:text-white font-medium rounded-lg transition-all duration-300 border border-cyan-500/30 hover:border-transparent text-sm">
+                      Edit Profile
+                    </div>
+                  </button>
+                </div>
 
                 {/* Avatar Upload with Gradient Glow */}
                 <div className="flex items-center gap-6 mb-6">
                   <div className="relative group/avatar cursor-pointer">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full blur opacity-50 group-hover/avatar:opacity-75 transition-opacity"></div>
                     <div className="relative w-24 h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                      {user && getInitials(user.full_name || user.username)}
+                      {getInitials(displayName || username)}
                       <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                         <svg
                           className="w-8 h-8 text-white"
@@ -99,7 +133,7 @@ export default function SettingsPage() {
                   <div className="relative group/input">
                     <input
                       type="text"
-                      value={user?.full_name || ''}
+                      value={displayName}
                       readOnly
                       className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
                       aria-label="Display Name"
@@ -116,7 +150,7 @@ export default function SettingsPage() {
                   <div className="relative group/input">
                     <input
                       type="text"
-                      value={user?.username || ''}
+                      value={username}
                       readOnly
                       className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
                       aria-label="Username"
@@ -149,53 +183,11 @@ export default function SettingsPage() {
                     <input
                       type="text"
                       placeholder="What's on your mind?"
-                      value={user?.status_message || ''}
+                      value={statusMessage}
                       readOnly
                       className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
                     />
                     <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within/input:opacity-100 transition-opacity pointer-events-none"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Settings Section - Glass Card */}
-            <div className="relative backdrop-blur-xl bg-gray-800/40 rounded-2xl border border-gray-700/50 p-6 mb-6 shadow-2xl group">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-              
-              <div className="relative z-10">
-                <h2 className="text-xl font-semibold text-gray-100 mb-4">AI Settings</h2>
-                <p className="text-gray-400 mb-4">Configure AI-powered features</p>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-700/50">
-                    <div>
-                      <h3 className="text-gray-200 font-medium">Smart Reply</h3>
-                      <p className="text-sm text-gray-400">Enable AI-generated quick replies</p>
-                    </div>
-                    <button type="button" title="Toggle Smart Reply" className="relative w-12 h-6 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full transition-all duration-300 shadow-lg shadow-cyan-500/30">
-                      <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-md"></span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between py-3 border-b border-gray-700/50">
-                    <div>
-                      <h3 className="text-gray-200 font-medium">Message Summarization</h3>
-                      <p className="text-sm text-gray-400">Summarize long conversations</p>
-                    </div>
-                    <button title='Message Summarization' className="relative w-12 h-6 bg-gray-700/50 rounded-full transition-all duration-300 hover:bg-gray-600/50">
-                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-md"></span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <h3 className="text-gray-200 font-medium">Voice Assistant</h3>
-                      <p className="text-sm text-gray-400">Enable voice commands</p>
-                    </div>
-                    <button title="Voice Assistant" className="relative w-12 h-6 bg-gray-700/50 rounded-full transition-all duration-300 hover:bg-gray-600/50">
-                      <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-md"></span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -209,16 +201,11 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-semibold text-gray-100 mb-4">Account</h2>
                 
                 <div className="space-y-3">
-                  <button className="w-full text-left px-4 py-3 bg-gray-700/30 hover:bg-gray-700/50 backdrop-blur-sm rounded-lg text-gray-200 transition-all duration-300 border border-gray-600/30 hover:border-cyan-500/50 group/btn">
+                  <button 
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="w-full text-left px-4 py-3 bg-gray-700/30 hover:bg-gray-700/50 backdrop-blur-sm rounded-lg text-gray-200 transition-all duration-300 border border-gray-600/30 hover:border-cyan-500/50 group/btn"
+                  >
                     <span className="group-hover/btn:text-cyan-400 transition-colors">Change Password</span>
-                  </button>
-                  
-                  <button className="w-full text-left px-4 py-3 bg-gray-700/30 hover:bg-gray-700/50 backdrop-blur-sm rounded-lg text-gray-200 transition-all duration-300 border border-gray-600/30 hover:border-cyan-500/50 group/btn">
-                    <span className="group-hover/btn:text-cyan-400 transition-colors">Privacy Settings</span>
-                  </button>
-                  
-                  <button className="w-full text-left px-4 py-3 bg-gray-700/30 hover:bg-gray-700/50 backdrop-blur-sm rounded-lg text-gray-200 transition-all duration-300 border border-gray-600/30 hover:border-cyan-500/50 group/btn">
-                    <span className="group-hover/btn:text-cyan-400 transition-colors">Notification Preferences</span>
                   </button>
 
                   <button
@@ -246,6 +233,24 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        currentValues={{
+          full_name: displayName,
+          username: username,
+          status_message: statusMessage,
+        }}
+        onSave={handleProfileUpdated}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </AuthGuard>
   );
 }

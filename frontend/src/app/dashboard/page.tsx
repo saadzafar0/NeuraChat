@@ -43,6 +43,16 @@ interface Chat {
   }>;
 }
 
+interface Notification {
+  id: string;
+  user_id: string;
+  type: 'message' | 'call' | 'system' | 'ai_summary';
+  title: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
@@ -61,10 +71,85 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
     setMessageInput(enhancedMessage);
     setIsAIAssistantOpen(false);
+  };
+
+  // NOTIFICATION FUNCTIONS
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.getNotifications();
+      const unreadNotifs = (response.notifications || []).filter((n: Notification) => !n.is_read);
+      setNotifications(unreadNotifs);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  const getUnreadCountForChat = (chatId: string) => {
+    return notifications.filter((n) => {
+      try {
+        const content = JSON.parse(n.content);
+        return content.chat_id === chatId;
+      } catch {
+        return false;
+      }
+    }).length;
+  };
+
+  const getTotalUnreadCount = () => {
+    return notifications.length;
+  };
+
+  const markChatNotificationsAsRead = async (chatId: string) => {
+    const chatNotifications = notifications.filter((n) => {
+      try {
+        const content = JSON.parse(n.content);
+        return content.chat_id === chatId;
+      } catch {
+        return false;
+      }
+    });
+
+    for (const notification of chatNotifications) {
+      try {
+        await api.markNotificationRead(notification.id);
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    }
+
+    setNotifications((prev) => prev.filter((n) => {
+      try {
+        const content = JSON.parse(n.content);
+        return content.chat_id !== chatId;
+      } catch {
+        return true;
+      }
+    }));
+  };
+
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    try {
+      await api.markNotificationRead(notificationId);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications([]);
+      setIsNotificationPanelOpen(false);
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
   };
 
   const fetchChats = async () => {
@@ -90,6 +175,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchChats();
+    fetchNotifications();
   }, []);
 
   useEffect(() => {
@@ -118,6 +204,13 @@ export default function DashboardPage() {
       );
     });
 
+    // Listen for real-time notifications
+    socketClient.on('notification:new', (notification: Notification) => {
+      if (!notification.is_read) {
+        setNotifications((prev) => [notification, ...prev]);
+      }
+    });
+
     socketClient.onMessageUpdated((message: Message) => {
       setMessages((prev) =>
         prev.map((msg) => (msg.id === message.id ? message : msg))
@@ -132,6 +225,7 @@ export default function DashboardPage() {
       socketClient.offNewMessage();
       socketClient.offMessageUpdated();
       socketClient.offMessageDeleted();
+      socketClient.off('notification:new');
       socketClient.disconnect();
     };
   }, [user, selectedChat]);
@@ -140,6 +234,7 @@ export default function DashboardPage() {
     if (selectedChat) {
       fetchMessages(selectedChat.id);
       socketClient.joinChat(selectedChat.id);
+      markChatNotificationsAsRead(selectedChat.id);
     }
 
     return () => {
@@ -320,6 +415,39 @@ export default function DashboardPage() {
         
         <Sidebar />
 
+        {/* NOTIFICATION BUBBLE - TOP RIGHT */}
+        <div className="fixed top-6 right-6 z-50">
+          <button
+            onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+            className="relative group"
+          >
+            {/* Glow Effect */}
+            <div className={`absolute inset-0 rounded-full blur-lg transition-opacity ${
+              getTotalUnreadCount() > 0 
+                ? 'bg-gradient-to-br from-pink-500 to-purple-600 opacity-60 group-hover:opacity-80' 
+                : 'bg-gray-600 opacity-30'
+            }`}></div>
+            
+            {/* Button */}
+            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-2xl ${
+              getTotalUnreadCount() > 0
+                ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white'
+                : 'bg-gray-700 text-gray-400'
+            }`}>
+              <svg className={`w-7 h-7 ${getTotalUnreadCount() > 0 ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              
+              {/* Badge */}
+              {getTotalUnreadCount() > 0 && (
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg animate-bounce">
+                  {getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount()}
+                </div>
+              )}
+            </div>
+          </button>
+        </div>
+
         {/* Chat List */}
         <div className="w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex flex-col relative z-10">
           {/* Header with Gradient */}
@@ -398,10 +526,18 @@ export default function DashboardPage() {
                       {selectedChat?.id === chat.id && (
                         <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse"></div>
                       )}
+                      {/* UNREAD BADGE */}
+                      {getUnreadCountForChat(chat.id) > 0 && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-pink-500/50 animate-pulse">
+                          {getUnreadCountForChat(chat.id) > 9 ? '9+' : getUnreadCountForChat(chat.id)}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-gray-100 truncate">
+                        <h3 className={`font-semibold truncate ${
+                          getUnreadCountForChat(chat.id) > 0 ? 'text-pink-400' : 'text-gray-100'
+                        }`}>
                           {getChatName(chat)}
                         </h3>
                         {chat.last_message && (
@@ -410,7 +546,9 @@ export default function DashboardPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-400 truncate">
+                      <p className={`text-sm truncate ${
+                        getUnreadCountForChat(chat.id) > 0 ? 'text-pink-300 font-medium' : 'text-gray-400'
+                      }`}>
                         {chat.last_message?.content || 'No messages yet'}
                       </p>
                     </div>
@@ -687,6 +825,134 @@ export default function DashboardPage() {
         originalMessage={messageInput}
         onApply={handleApplyAIEnhancement}
       />
+
+      {/* NOTIFICATION PANEL */}
+      {isNotificationPanelOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+          onClick={() => setIsNotificationPanelOpen(false)}
+        >
+          <div 
+            className="fixed top-24 right-6 w-96 max-h-[600px] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Glow Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl blur-xl opacity-30"></div>
+            
+            {/* Panel */}
+            <div className="relative backdrop-blur-xl bg-gray-800/95 border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-4 border-b border-gray-700/50 flex-shrink-0">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-pink-500/50 to-transparent"></div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold bg-gradient-to-r from-pink-400 to-purple-500 bg-clip-text text-transparent">
+                      Notifications ({getTotalUnreadCount()})
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsNotificationPanelOpen(false)}
+                    className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700/50 rounded-lg"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[450px]">
+                {notifications.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-400 font-medium">All caught up!</p>
+                    <p className="text-sm text-gray-500 mt-1">No unread notifications</p>
+                  </div>
+                ) : (
+                  notifications.map((notification) => {
+                    let chatId = '';
+                    let chatName = 'Unknown';
+                    try {
+                      const content = JSON.parse(notification.content);
+                      chatId = content.chat_id;
+                      const chat = chats.find((c) => c.id === chatId);
+                      chatName = chat ? getChatName(chat) : 'Unknown Chat';
+                    } catch {}
+
+                    return (
+                      <div
+                        key={notification.id}
+                        className="backdrop-blur-sm bg-gray-700/40 hover:bg-gray-700/60 border border-gray-600/30 rounded-lg p-3 transition-all group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-medium text-pink-400 text-sm truncate">
+                                {notification.title}
+                              </p>
+                              <button
+                                onClick={() => handleMarkNotificationRead(notification.id)}
+                                className="flex-shrink-0 text-gray-400 hover:text-cyan-400 transition-colors p-1 hover:bg-gray-600/50 rounded"
+                                title="Mark as read"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                            </div>
+                            <p className="text-sm text-gray-300 mb-2">
+                              New message in <span className="text-cyan-400 font-medium">{chatName}</span>
+                            </p>
+                            {chatId && (
+                              <button
+                                onClick={() => {
+                                  const chat = chats.find((c) => c.id === chatId);
+                                  if (chat) {
+                                    setSelectedChat(chat);
+                                    setIsNotificationPanelOpen(false);
+                                  }
+                                }}
+                                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+                              >
+                                Open Chat
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              {notifications.length > 0 && (
+                <div className="p-3 border-t border-gray-700/50 flex-shrink-0">
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="w-full py-2 bg-gradient-to-r from-pink-500/20 to-purple-600/20 hover:from-pink-500/30 hover:to-purple-600/30 border border-pink-500/50 text-pink-400 rounded-lg transition-all font-medium text-sm"
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AuthGuard>
   );
 }

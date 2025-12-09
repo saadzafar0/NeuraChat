@@ -118,6 +118,13 @@ class APIClient {
     });
   }
 
+  async changePassword(data: { current_password: string; new_password: string }) {
+    return this.request('/users/change-password', {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
   async searchUsers(query: string) {
     return this.request(`/users/search?query=${encodeURIComponent(query)}`, {
       method: 'GET',
@@ -256,6 +263,25 @@ class APIClient {
     return this.request('/ai/chat', {
       method: 'POST',
       body: { sessionId, query },
+    });
+  }
+
+  // Notification endpoints
+  async getNotifications(page: number = 1) {
+    return this.request(`/notifications?page=${page}`, {
+      method: 'GET',
+    });
+  }
+
+  async markNotificationRead(notificationId: string) {
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'PATCH',
+    });
+  }
+
+  async markAllNotificationsRead() {
+    return this.request('/notifications/read-all', {
+      method: 'PATCH',
     });
   }
 }

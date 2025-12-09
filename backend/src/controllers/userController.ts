@@ -160,3 +160,79 @@ export const updateLastSeen = async (req: AuthRequest, res: Response): Promise<v
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    const { current_password, new_password } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!current_password || !new_password) {
+      res.status(400).json({ error: 'Current password and new password are required' });
+      return;
+    }
+
+    if (new_password.length < 6) {
+      res.status(400).json({ error: 'New password must be at least 6 characters' });
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    // Get user's email
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Create a new Supabase client with service role for admin operations
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseAdmin = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role key
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Verify current password by attempting to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: current_password,
+    });
+
+    if (signInError) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    // Update password using admin client
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { password: new_password }
+    );
+
+    if (updateError) {
+      res.status(400).json({ error: updateError.message });
+      return;
+    }
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
