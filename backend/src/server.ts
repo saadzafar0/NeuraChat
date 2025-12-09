@@ -13,6 +13,8 @@ import callRoutes from './routes/callRoutes';
 import aiRoutes from './routes/aiRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import mediaRoutes from './routes/mediaRoutes';
+import encryptionRoutes from './routes/encryptionRoutes';
+import groupEncryptionRoutes from './routes/groupEncryptionRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -64,8 +66,10 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/calls', callRoutes); // Yet to be implemented
 app.use('/api/ai', aiRoutes);
-app.use('/api/notifications', notificationRoutes); // Yet to be implemented
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/encryption', encryptionRoutes);
+app.use('/api/group-encryption', groupEncryptionRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

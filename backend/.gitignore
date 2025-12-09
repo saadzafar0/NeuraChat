@@ -76,3 +76,6 @@ temp/
 # Build outputs
 dist/
 build/
+
+SIGNAL_PROTOCOL_IMPLEMENTATION.md
+E2EE_CHECKLIST.md

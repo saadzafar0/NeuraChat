@@ -20,7 +20,7 @@ export type Message = {
   id: string;
   chat_id: string;
   sender_id: string;
-  content: string;
+  content: string; // With E2EE enabled: stores encrypted ciphertext (base64)
   type: 'text' | 'media' | 'system';
   status: 'sent' | 'delivered' | 'read';
   created_at: Date;
@@ -62,6 +62,62 @@ export type Notification = {
   type: 'message' | 'call' | 'system';
   is_read: boolean;
   created_at: Date;
+};
+
+export type EncryptionKeys = {
+  id: string;
+  user_id: string;
+  identity_key: string;
+  signed_pre_key: string;
+  one_time_pre_keys: any;
+  updated_at: Date;
+};
+
+export type EncryptionSession = {
+  id: string;
+  user_id: string;
+  contact_id: string;
+  session_state: any;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type UsedPreKey = {
+  id: string;
+  user_id: string;
+  prekey_id: string;
+  used_by: string;
+  used_at: Date;
+};
+
+export type KeyRotationLog = {
+  id: string;
+  user_id: string;
+  key_type: 'identity' | 'signed_pre_key' | 'one_time_pre_keys';
+  rotated_at: Date;
+  reason?: string;
+};
+
+// Group Encryption Types
+export type GroupSenderKey = {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  key_id: number;
+  chain_key: string;
+  signature_key: string;
+  created_at: Date;
+};
+
+export type SenderKeyDistribution = {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  recipient_id: string;
+  key_id: number;
+  chain_key: string;
+  signature_key: string;
+  distributed_at: Date;
 };
 
 export type AuthRequest = Request & {

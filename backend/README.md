@@ -2,8 +2,55 @@
 
 A comprehensive REST API for the NeuraChat messaging platform with real-time messaging and file sharing.
 
-**✅ Implemented**: Authentication, Messaging, File Sharing, AI Features
+**✅ Implemented**: Authentication, Messaging, File Sharing, AI Features, **End-to-End Encryption (E2EE)**
 **⚠️ Not Yet Implemented**: Voice/video calls
+
+## 🔐 NEW: End-to-End Encryption (Signal Protocol)
+
+**Signal Protocol implementation is now available!** 🎉
+
+NeuraChat now supports industry-standard end-to-end encryption for 1-on-1 private chats.
+
+### Quick Links
+- 📖 [Complete Implementation Guide](SIGNAL_PROTOCOL_IMPLEMENTATION.md)
+- ⚡ [Quick Start Guide](SIGNAL_PROTOCOL_QUICKSTART.md)
+- 🚀 [5-Minute Setup](QUICK_SETUP.md)
+- ✅ [Implementation Checklist](E2EE_CHECKLIST.md)
+
+### E2EE Status
+- ✅ Backend: Complete (100%)
+- ✅ 1-on-1 Chats: Fully implemented
+- ✅ Group Chats: Sender Keys protocol implemented
+- ⏳ Frontend: Integration needed
+- 🔒 Security: Industry-standard Signal Protocol
+
+### New Encryption Endpoints
+
+**1-on-1 Chat Encryption:**
+```
+POST   /api/encryption/keys              # Upload public keys
+GET    /api/encryption/keys/:userId      # Get pre-key bundle  
+POST   /api/encryption/rotate-prekey     # Rotate keys
+POST   /api/encryption/replenish-prekeys # Replenish pre-keys
+GET    /api/encryption/status            # Encryption status
+POST   /api/encryption/session/:id       # Initialize session
+DELETE /api/encryption/session/:id       # Delete session
+GET    /api/encryption/sessions          # Get active sessions
+```
+
+**Group Chat Encryption:**
+```
+POST   /api/group-encryption/initialize           # Initialize group encryption
+GET    /api/group-encryption/status/:groupId      # Get encryption status
+POST   /api/group-encryption/rotate-sender-key/:groupId  # Rotate sender key
+POST   /api/group-encryption/member-added         # Handle member added
+POST   /api/group-encryption/member-removed       # Handle member removed
+POST   /api/group-encryption/rotate-all/:groupId  # Rotate all keys (admin)
+POST   /api/group-encryption/encrypt              # Encrypt message (test)
+POST   /api/group-encryption/decrypt              # Decrypt message (test)
+```
+
+---
 
 ## Tech Stack
 
