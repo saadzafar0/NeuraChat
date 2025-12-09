@@ -93,7 +93,7 @@ export default function DashboardPage() {
   // NOTIFICATION FUNCTIONS
   const fetchNotifications = async () => {
     try {
-      const response = await api.getNotifications();
+      const response = await api.getNotifications() as { notifications: Notification[] };
       const unreadNotifs = (response.notifications || []).filter((n: Notification) => !n.is_read);
       setNotifications(unreadNotifs);
     } catch (error) {
@@ -1144,7 +1144,7 @@ export default function DashboardPage() {
       )}
 
       {/* Outgoing call UI */}
-      {(callState === 'calling' || callState === 'rejected') && currentCall?.isCaller && (
+      {callState === 'calling' && currentCall?.isCaller && (
         <OutgoingCallUI
           otherUserName={
             (() => {
@@ -1155,10 +1155,10 @@ export default function DashboardPage() {
                   return otherUser.full_name || otherUser.username || 'Unknown';
                 }
               }
-              return currentCall.displayName || 'Unknown User';
+              return 'Unknown User';
             })()
           }
-          status={callState === 'rejected' ? 'rejected' : 'calling'}
+          status="calling"
           onCancel={endCall}
           onReturnToChat={() => {
             resetCallSession();
