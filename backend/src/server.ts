@@ -164,6 +164,7 @@ io.on('connection', (socket) => {
             type: 'message',
             title: 'New Message',
             content: contentPreview,
+            chatId: chat_id,
           });
         }
       }
