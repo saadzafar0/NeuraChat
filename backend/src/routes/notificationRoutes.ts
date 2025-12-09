@@ -1,20 +1,14 @@
 import { Router } from 'express';
-import {
-  getUserNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-  deleteNotification,
-} from '../controllers/notificationController';
-import { authenticateToken } from '../middleware/auth';
+import { getNotifications, markRead, markAllRead } from '../controllers/notificationController';
+import { authenticateToken } from '../middleware/auth'; 
 
 const router = Router();
 
-// All routes require authentication
+// Apply Auth Middleware to all routes
 router.use(authenticateToken);
 
-router.get('/', getUserNotifications);
-router.put('/:notificationId/read', markNotificationRead);
-router.put('/read-all', markAllNotificationsRead);
-router.delete('/:notificationId', deleteNotification);
+router.get('/', getNotifications);
+router.patch('/read-all', markAllRead);  // Mark all as read
+router.patch('/:id', markRead);          // Mark single notification as read
 
 export default router;

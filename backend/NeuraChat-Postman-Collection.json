@@ -696,8 +696,9 @@
                   "value": "50"
                 },
                 {
-                  "key": "offset",
-                  "value": "0"
+                  "key": "notificationId",
+                  "value": "",
+                  "description": "The ID of the notification to mark as read. Set this variable before sending the request."
                 }
               ]
             },

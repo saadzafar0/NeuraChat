@@ -147,6 +147,26 @@ io.on('connection', (socket) => {
 
       // Broadcast to all users in the chat room (including sender)
       io.to(`chat:${chat_id}`).emit('new-message', data);
+
+      // Send notification to all participants except the sender
+      const { NotificationService } = await import('./services/Notifications/NotificationService');
+      const { data: participants } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('chat_id', chat_id)
+        .neq('user_id', sender_id);
+
+      if (participants) {
+        const contentPreview = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        for (const participant of participants) {
+          await NotificationService.createNotification({
+            userId: participant.user_id,
+            type: 'message',
+            title: 'New Message',
+            content: contentPreview,
+          });
+        }
+      }
       
     } catch (error) {
       console.error('Socket send message error:', error);
