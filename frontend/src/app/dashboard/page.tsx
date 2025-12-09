@@ -487,8 +487,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* NOTIFICATION BUBBLE - TOP RIGHT */}
-        <div className="fixed top-6 right-6 z-50">
+        {/* NOTIFICATION BUBBLE - TOP LEFT (Mobile & Desktop) */}
+        <div className="fixed top-6 left-6 z-50 lg:left-80">
           <button
             onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
             className="relative group"
@@ -501,18 +501,18 @@ export default function DashboardPage() {
             }`}></div>
             
             {/* Button */}
-            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-2xl ${
+            <div className={`relative w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center transition-all shadow-2xl ${
               getTotalUnreadCount() > 0
                 ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white'
                 : 'bg-gray-700 text-gray-400'
             }`}>
-              <svg className={`w-7 h-7 ${getTotalUnreadCount() > 0 ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-6 h-6 lg:w-7 lg:h-7 ${getTotalUnreadCount() > 0 ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               
               {/* Badge */}
               {getTotalUnreadCount() > 0 && (
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg animate-bounce">
+                <div className="absolute -top-1 -right-1 w-5 h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg animate-bounce">
                   {getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount()}
                 </div>
               )}
@@ -959,7 +959,7 @@ export default function DashboardPage() {
           onClick={() => setIsNotificationPanelOpen(false)}
         >
           <div 
-            className="fixed top-24 right-6 w-96 max-h-[600px] flex flex-col"
+            className="fixed top-24 left-6 lg:left-80 w-80 sm:w-96 max-h-[600px] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Glow Effect */}
