@@ -46,24 +46,27 @@ class APIClient {
       }
 
       if (!response.ok) {
-        throw {
+        // Normalize the error shape so callers can inspect status/message/data
+        const normalizedError = {
           status: response.status,
-          message: data.error || data.message || 'Request failed',
+          message: data?.error || data?.message || response.statusText || 'Request failed',
           data,
         };
+        throw normalizedError;
       }
 
       return data as T;
     } catch (error: any) {
       // Network or parsing errors
-      if (error.status) {
+      if (error?.status) {
         throw error;
       }
-      throw {
+      const normalizedError = {
         status: 0,
-        message: error.message || 'Network error',
-        data: null,
+        message: error?.message || 'Network error',
+        data: error ?? null,
       };
+      throw normalizedError;
     }
   }
 
@@ -74,34 +77,34 @@ class APIClient {
     username: string;
     full_name: string;
   }) {
-    return this.request('/auth/register', {
+    return this.request('/api/auth/register', {
       method: 'POST',
       body: data,
     });
   }
 
   async login(data: { email: string; password: string }) {
-    return this.request('/auth/login', {
+    return this.request('/api/auth/login', {
       method: 'POST',
       body: data,
     });
   }
 
   async logout() {
-    return this.request('/auth/logout', {
+    return this.request('/api/auth/logout', {
       method: 'POST',
     });
   }
 
   async getCurrentUser() {
-    return this.request('/auth/me', {
+    return this.request('/api/auth/me', {
       method: 'GET',
     });
   }
 
   // User endpoints
   async getUserProfile(userId: string) {
-    return this.request(`/users/profile/${userId}`, {
+    return this.request(`/api/users/profile/${userId}`, {
       method: 'GET',
     });
   }
@@ -112,26 +115,26 @@ class APIClient {
     avatar_url?: string | null;
     status_message?: string | null;
   }) {
-    return this.request('/users/profile', {
+    return this.request('/api/users/profile', {
       method: 'PUT',
       body: data,
     });
   }
 
   async searchUsers(query: string) {
-    return this.request(`/users/search?query=${encodeURIComponent(query)}`, {
+    return this.request(`/api/users/search?query=${encodeURIComponent(query)}`, {
       method: 'GET',
     });
   }
 
   async getUserContacts() {
-    return this.request('/users/contacts', {
+    return this.request('/api/users/contacts', {
       method: 'GET',
     });
   }
 
   async updateLastSeen() {
-    return this.request('/users/last-seen', {
+    return this.request('/api/users/last-seen', {
       method: 'PUT',
     });
   }
@@ -142,52 +145,72 @@ class APIClient {
     name?: string;
     participants: string[];
   }) {
-    return this.request('/chats', {
+    return this.request('/api/chats', {
       method: 'POST',
       body: data,
     });
   }
 
   async getUserChats() {
-    return this.request('/chats', {
+    return this.request('/api/chats', {
       method: 'GET',
     });
   }
 
   async getChatDetails(chatId: string) {
-    return this.request(`/chats/${chatId}`, {
+    return this.request(`/api/chats/${chatId}`, {
+      method: 'GET',
+    });
+  }
+
+  // Call endpoints
+  async createCall(data: { chatId: string; type?: 'audio' | 'video' }) {
+    return this.request('/api/calls', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async joinCall(callId: string) {
+    return this.request(`/api/calls/${callId}/join`, {
+      method: 'POST',
+    });
+  }
+
+  async getRtmToken() {
+    return this.request('/api/agora/rtm-token', {
       method: 'GET',
     });
   }
 
   async updateChat(chatId: string, data: { name: string }) {
-    return this.request(`/chats/${chatId}`, {
+    return this.request(`/api/chats/${chatId}`, {
       method: 'PUT',
       body: data,
     });
   }
 
   async leaveChat(chatId: string) {
-    return this.request(`/chats/${chatId}/leave`, {
+    return this.request(`/api/chats/${chatId}/leave`, {
       method: 'DELETE',
     });
   }
 
   // Message endpoints
   async getChatMessages(chatId: string, limit = 50, offset = 0) {
-    return this.request(`/messages/${chatId}?limit=${limit}&offset=${offset}`, {
+    return this.request(`/api/messages/${chatId}?limit=${limit}&offset=${offset}`, {
       method: 'GET',
     });
   }
 
   async deleteMessage(messageId: string) {
-    return this.request(`/messages/${messageId}`, {
+    return this.request(`/api/messages/${messageId}`, {
       method: 'DELETE',
     });
   }
 
   async editMessage(messageId: string, content: string) {
-    return this.request(`/messages/${messageId}`, {
+    return this.request(`/api/messages/${messageId}`, {
       method: 'PUT',
       body: { content },
     });
@@ -195,33 +218,33 @@ class APIClient {
 
   // AI endpoints
   async createAISession(data: { title?: string }) {
-    return this.request('/ai/sessions', {
+    return this.request('/api/ai/sessions', {
       method: 'POST',
       body: data,
     });
   }
 
   async getUserAISessions() {
-    return this.request('/ai/sessions', {
+    return this.request('/api/ai/sessions', {
       method: 'GET',
     });
   }
 
   async getSessionInteractions(sessionId: string) {
-    return this.request(`/ai/sessions/${sessionId}`, {
+    return this.request(`/api/ai/sessions/${sessionId}`, {
       method: 'GET',
     });
   }
 
   async sendAIMessage(sessionId: string, data: { query: string; intent?: string }) {
-    return this.request(`/ai/sessions/${sessionId}/message`, {
+    return this.request(`/api/ai/sessions/${sessionId}/message`, {
       method: 'POST',
       body: data,
     });
   }
 
   async enhanceMessage(message: string, action: string) {
-    return this.request('/ai/enhance', {
+    return this.request('/api/ai/enhance', {
       method: 'POST',
       body: { message, action },
     });
@@ -232,7 +255,7 @@ class APIClient {
    * This is a singleton session that persists across the app
    */
   async getMainAISession() {
-    return this.request('/ai/session', {
+    return this.request('/api/ai/session', {
       method: 'GET',
     });
   }
@@ -242,7 +265,7 @@ class APIClient {
    * Returns all past interactions (queries and responses)
    */
   async getMainSessionHistory() {
-    return this.request('/ai/session/history', {
+    return this.request('/api/ai/session/history', {
       method: 'GET',
     });
   }
@@ -253,7 +276,7 @@ class APIClient {
    * @param query - The user's message/query
    */
   async chatWithAgent(sessionId: string, query: string) {
-    return this.request('/ai/chat', {
+    return this.request('/api/ai/chat', {
       method: 'POST',
       body: { sessionId, query },
     });

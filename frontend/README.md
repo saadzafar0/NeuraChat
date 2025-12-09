@@ -42,7 +42,12 @@ Create `.env.local` in the `frontend/` directory:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_AGORA_APP_ID=your_agora_app_id_here
 ```
+
+**Important**: You need to get your Agora App ID from [Agora Console](https://console.agora.io/). This should be the same value as `AGORA_APP_ID` in your backend `.env` file.
+
+Note: `next.config.ts` will automatically map `AGORA_APP_ID` (from your backend/root `.env`) to `NEXT_PUBLIC_AGORA_APP_ID` for the frontend, so you can set it once in `backend/.env` and reuse it.
 
 ### 2. Backend CORS Setup
 

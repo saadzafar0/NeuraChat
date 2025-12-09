@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import socketClient from '@/lib/socket';
 
 interface User {
   id: string;
@@ -98,6 +99,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
   };
+
+  // Maintain a single socket connection per authenticated user
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      socketClient.disconnect();
+      return;
+    }
+
+    socketClient.connect('');
+    const socket = socketClient.getSocket();
+    if (socket) {
+      if (socket.connected) {
+        socketClient.joinUser(user.id);
+      } else {
+        const onConnect = () => {
+          socketClient.joinUser(user.id);
+          socket.off('connect', onConnect);
+        };
+        socket.on('connect', onConnect);
+        return () => socket.off('connect', onConnect);
+      }
+    }
+  }, [user, loading]);
 
   return (
     <AuthContext.Provider
