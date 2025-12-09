@@ -258,6 +258,101 @@ class APIClient {
       body: { sessionId, query },
     });
   }
+
+  // ========== ENCRYPTION ENDPOINTS ==========
+
+  /**
+   * Upload user's encryption keys to the server
+   */
+  async uploadEncryptionKeys(data: {
+    identityKey: string;
+    signedPreKey: {
+      id: number;
+      public: string;
+      signature: string;
+    };
+    oneTimePreKeys: Array<{ id: number; public: string }>;
+  }) {
+    return this.request('/encryption/keys', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Get a user's pre-key bundle for establishing encrypted session
+   */
+  async getPreKeyBundle(userId: string) {
+    return this.request(`/encryption/keys/${userId}`, {
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Rotate signed pre-key
+   */
+  async rotateSignedPreKey(data: {
+    signedPreKey: {
+      id: number;
+      public: string;
+      signature: string;
+    };
+  }) {
+    return this.request('/encryption/rotate-prekey', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  /**
+   * Replenish one-time pre-keys
+   */
+  async replenishPreKeys(oneTimePreKeys: Array<{ id: number; public: string }>) {
+    return this.request('/encryption/replenish-prekeys', {
+      method: 'POST',
+      body: { oneTimePreKeys },
+    });
+  }
+
+  /**
+   * Get encryption status
+   */
+  async getEncryptionStatus(): Promise<{
+    hasKeys: boolean;
+    prekeyCount: number;
+    needsReplenishment: boolean;
+  }> {
+    return this.request('/encryption/status', {
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Initialize session with a contact
+   */
+  async initializeSession(contactId: string) {
+    return this.request(`/encryption/session/${contactId}`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Delete session with a contact
+   */
+  async deleteSession(contactId: string) {
+    return this.request(`/encryption/session/${contactId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get active encryption sessions
+   */
+  async getActiveSessions() {
+    return this.request('/encryption/sessions', {
+      method: 'GET',
+    });
+  }
 }
 
 // Export singleton instance

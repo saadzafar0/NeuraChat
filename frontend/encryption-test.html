@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuraChat Frontend Encryption Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      background: linear-gradient(90deg, #00d9ff, #0099ff, #9b59b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .test-section {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .test-section h2 {
+      color: #00d9ff;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .test-section h2::before {
+      content: '🔐';
+    }
+
+    .test-item {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .test-item h3 {
+      color: #9b59b6;
+      margin-bottom: 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status.pending {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+
+    .status.running {
+      background: rgba(33, 150, 243, 0.2);
+      color: #2196f3;
+    }
+
+    .status.success {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+    }
+
+    .status.error {
+      background: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+    }
+
+    button {
+      background: linear-gradient(90deg, #00d9ff, #0099ff);
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0, 217, 255, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.danger {
+      background: linear-gradient(90deg, #f44336, #e91e63);
+    }
+
+    .output {
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .output.success {
+      border-left: 3px solid #4caf50;
+    }
+
+    .output.error {
+      border-left: 3px solid #f44336;
+    }
+
+    .key-display {
+      background: rgba(0, 217, 255, 0.1);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      word-break: break-all;
+      margin: 8px 0;
+    }
+
+    .chat-simulation {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .user-panel {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    .user-panel h3 {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-panel.alice h3 {
+      color: #00d9ff;
+    }
+
+    .user-panel.bob h3 {
+      color: #9b59b6;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-family: inherit;
+      margin-bottom: 12px;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+
+    .message-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+
+    .message {
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .message.sent {
+      background: linear-gradient(90deg, #00d9ff, #0099ff);
+      margin-left: 20%;
+    }
+
+    .message.received {
+      background: rgba(155, 89, 182, 0.3);
+      margin-right: 20%;
+    }
+
+    .message .meta {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+
+    .test-results {
+      margin-top: 20px;
+    }
+
+    .test-result {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .test-result:last-child {
+      border-bottom: none;
+    }
+
+    .test-result .name {
+      flex: 1;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .summary-card {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .summary-card .number {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .summary-card.total .number { color: #00d9ff; }
+    .summary-card.passed .number { color: #4caf50; }
+    .summary-card.failed .number { color: #f44336; }
+    .summary-card.pending .number { color: #ffc107; }
+
+    @media (max-width: 768px) {
+      .chat-simulation {
+        grid-template-columns: 1fr;
+      }
+      
+      .summary {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 NeuraChat Frontend Encryption Test</h1>
+
+    <!-- Test Summary -->
+    <div class="test-section">
+      <h2>Test Summary</h2>
+      <div class="summary">
+        <div class="summary-card total">
+          <div class="number" id="total-count">0</div>
+          <div>Total Tests</div>
+        </div>
+        <div class="summary-card passed">
+          <div class="number" id="passed-count">0</div>
+          <div>Passed</div>
+        </div>
+        <div class="summary-card failed">
+          <div class="number" id="failed-count">0</div>
+          <div>Failed</div>
+        </div>
+        <div class="summary-card pending">
+          <div class="number" id="pending-count">0</div>
+          <div>Pending</div>
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <button onclick="runAllTests()">▶️ Run All Tests</button>
+        <button onclick="clearResults()" class="danger">🗑️ Clear Results</button>
+      </div>
+    </div>
+
+    <!-- Key Generation Tests -->
+    <div class="test-section">
+      <h2>Key Generation Tests</h2>
+      <div class="test-item">
+        <h3>Identity Key Pair</h3>
+        <button onclick="testIdentityKeyGeneration()">Generate Identity Keys</button>
+        <div class="output" id="identity-key-output"></div>
+      </div>
+      <div class="test-item">
+        <h3>Signed Pre-Key</h3>
+        <button onclick="testSignedPreKeyGeneration()">Generate Signed Pre-Key</button>
+        <div class="output" id="signed-prekey-output"></div>
+      </div>
+      <div class="test-item">
+        <h3>One-Time Pre-Keys</h3>
+        <button onclick="testOneTimePreKeyGeneration()">Generate 10 Pre-Keys</button>
+        <div class="output" id="onetime-prekey-output"></div>
+      </div>
+    </div>
+
+    <!-- Encryption/Decryption Tests -->
+    <div class="test-section">
+      <h2>Encryption/Decryption Tests</h2>
+      <div class="test-item">
+        <h3>Simple AES-GCM Encryption</h3>
+        <input type="text" id="encrypt-input" placeholder="Enter message to encrypt..." value="Hello, this is a secret message! 🔐">
+        <button onclick="testSimpleEncryption()">Encrypt & Decrypt</button>
+        <div class="output" id="encryption-output"></div>
+      </div>
+    </div>
+
+    <!-- Session Simulation -->
+    <div class="test-section">
+      <h2>Chat Session Simulation</h2>
+      <p style="margin-bottom: 20px; opacity: 0.7;">Simulates encrypted communication between two users (Alice and Bob)</p>
+      <button onclick="initializeSimulation()">Initialize Session</button>
+      <button onclick="clearSimulation()" class="danger">Reset Simulation</button>
+      
+      <div class="chat-simulation" style="margin-top: 20px;">
+        <!-- Alice Panel -->
+        <div class="user-panel alice">
+          <h3>👩 Alice</h3>
+          <div class="message-list" id="alice-messages"></div>
+          <input type="text" id="alice-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendAliceMessage()">
+          <button onclick="sendAliceMessage()">Send Message</button>
+          <div class="key-display" id="alice-keys" style="display: none;"></div>
+        </div>
+        
+        <!-- Bob Panel -->
+        <div class="user-panel bob">
+          <h3>👨 Bob</h3>
+          <div class="message-list" id="bob-messages"></div>
+          <input type="text" id="bob-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendBobMessage()">
+          <button onclick="sendBobMessage()">Send Message</button>
+          <div class="key-display" id="bob-keys" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage Tests -->
+    <div class="test-section">
+      <h2>Storage Tests</h2>
+      <div class="test-item">
+        <h3>Local Storage Operations</h3>
+        <button onclick="testLocalStorage()">Test Storage</button>
+        <button onclick="clearLocalStorage()" class="danger">Clear All Keys</button>
+        <div class="output" id="storage-output"></div>
+      </div>
+    </div>
+
+    <!-- Test Results -->
+    <div class="test-section">
+      <h2>Automated Test Results</h2>
+      <div class="test-results" id="test-results"></div>
+    </div>
+  </div>
+
+  <script>
+    // =============================================
+    // ENCRYPTION SERVICE (Simplified for Testing)
+    // =============================================
+
+    class SignalServiceTest {
+      constructor() {
+        this.crypto = window.crypto.subtle;
+        this.STORAGE_KEYS = {
+          IDENTITY_KEY: 'neurachat_test_identity_key',
+          SIGNED_PREKEY: 'neurachat_test_signed_prekey',
+          ONETIME_PREKEYS: 'neurachat_test_onetime_prekeys',
+          SESSIONS: 'neurachat_test_sessions',
+        };
+      }
+
+      // Generate ECDH key pair
+      async generateKeyPair() {
+        const keyPair = await this.crypto.generateKey(
+          { name: 'ECDH', namedCurve: 'P-256' },
+          true,
+          ['deriveKey', 'deriveBits']
+        );
+
+        const publicKey = await this.exportPublicKey(keyPair.publicKey);
+        const privateKey = await this.exportPrivateKey(keyPair.privateKey);
+
+        return { publicKey, privateKey };
+      }
+
+      // Generate signed pre-key
+      async generateSignedPreKey(identityPrivateKey, keyId) {
+        const preKeyPair = await this.generateKeyPair();
+        
+        // Create signature using HMAC
+        const signingKey = await this.crypto.importKey(
+          'raw',
+          this.base64ToArrayBuffer(identityPrivateKey).slice(0, 32),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        
+        const signature = await this.crypto.sign(
+          { name: 'HMAC' },
+          signingKey,
+          this.base64ToArrayBuffer(preKeyPair.publicKey)
+        );
+
+        return {
+          id: keyId,
+          publicKey: preKeyPair.publicKey,
+          privateKey: preKeyPair.privateKey,
+          signature: this.arrayBufferToBase64(signature)
+        };
+      }
+
+      // Generate one-time pre-keys
+      async generateOneTimePreKeys(startId, count) {
+        const preKeys = [];
+        for (let i = 0; i < count; i++) {
+          const keyPair = await this.generateKeyPair();
+          preKeys.push({
+            id: startId + i,
+            publicKey: keyPair.publicKey,
+            privateKey: keyPair.privateKey
+          });
+        }
+        return preKeys;
+      }
+
+      // Derive shared secret from two key pairs
+      async deriveSharedSecret(privateKeyBase64, publicKeyBase64) {
+        const privateKey = await this.importPrivateKey(privateKeyBase64);
+        const publicKey = await this.importPublicKey(publicKeyBase64);
+
+        const sharedSecret = await this.crypto.deriveBits(
+          { name: 'ECDH', public: publicKey },
+          privateKey,
+          256
+        );
+
+        return this.arrayBufferToBase64(sharedSecret);
+      }
+
+      // Encrypt message with shared secret
+      async encryptMessage(plaintext, sharedSecretBase64) {
+        const sharedSecret = this.base64ToArrayBuffer(sharedSecretBase64);
+        
+        const keyMaterial = await this.crypto.importKey(
+          'raw',
+          sharedSecret,
+          { name: 'HKDF' },
+          false,
+          ['deriveKey']
+        );
+
+        const aesKey = await this.crypto.deriveKey(
+          {
+            name: 'HKDF',
+            salt: new Uint8Array(16),
+            info: new TextEncoder().encode('neurachat-e2ee'),
+            hash: 'SHA-256'
+          },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext = await this.crypto.encrypt(
+          { name: 'AES-GCM', iv },
+          aesKey,
+          new TextEncoder().encode(plaintext)
+        );
+
+        return {
+          ciphertext: this.arrayBufferToBase64(ciphertext),
+          iv: this.arrayBufferToBase64(iv)
+        };
+      }
+
+      // Decrypt message with shared secret
+      async decryptMessage(encryptedMessage, sharedSecretBase64) {
+        const sharedSecret = this.base64ToArrayBuffer(sharedSecretBase64);
+        
+        const keyMaterial = await this.crypto.importKey(
+          'raw',
+          sharedSecret,
+          { name: 'HKDF' },
+          false,
+          ['deriveKey']
+        );
+
+        const aesKey = await this.crypto.deriveKey(
+          {
+            name: 'HKDF',
+            salt: new Uint8Array(16),
+            info: new TextEncoder().encode('neurachat-e2ee'),
+            hash: 'SHA-256'
+          },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+
+        const plaintext = await this.crypto.decrypt(
+          { name: 'AES-GCM', iv: this.base64ToArrayBuffer(encryptedMessage.iv) },
+          aesKey,
+          this.base64ToArrayBuffer(encryptedMessage.ciphertext)
+        );
+
+        return new TextDecoder().decode(plaintext);
+      }
+
+      // Key export/import helpers
+      async exportPublicKey(key) {
+        const exported = await this.crypto.exportKey('spki', key);
+        return this.arrayBufferToBase64(exported);
+      }
+
+      async exportPrivateKey(key) {
+        const exported = await this.crypto.exportKey('pkcs8', key);
+        return this.arrayBufferToBase64(exported);
+      }
+
+      async importPublicKey(base64Key) {
+        return this.crypto.importKey(
+          'spki',
+          this.base64ToArrayBuffer(base64Key),
+          { name: 'ECDH', namedCurve: 'P-256' },
+          true,
+          []
+        );
+      }
+
+      async importPrivateKey(base64Key) {
+        return this.crypto.importKey(
+          'pkcs8',
+          this.base64ToArrayBuffer(base64Key),
+          { name: 'ECDH', namedCurve: 'P-256' },
+          true,
+          ['deriveKey', 'deriveBits']
+        );
+      }
+
+      // Storage methods
+      storeIdentityKey(keyPair) {
+        localStorage.setItem(this.STORAGE_KEYS.IDENTITY_KEY, JSON.stringify(keyPair));
+      }
+
+      getIdentityKey() {
+        const stored = localStorage.getItem(this.STORAGE_KEYS.IDENTITY_KEY);
+        return stored ? JSON.parse(stored) : null;
+      }
+
+      clearAllKeys() {
+        Object.values(this.STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+      }
+
+      // Utility methods
+      arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      base64ToArrayBuffer(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+    }
+
+    // Initialize service
+    const signalService = new SignalServiceTest();
+
+    // =============================================
+    // TEST STATE
+    // =============================================
+
+    let testResults = {
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pending: 0
+    };
+
+    let simulationState = {
+      initialized: false,
+      aliceKeys: null,
+      bobKeys: null,
+      sharedSecret: null,
+      aliceMessages: [],
+      bobMessages: []
+    };
+
+    // =============================================
+    // TEST FUNCTIONS
+    // =============================================
+
+    async function testIdentityKeyGeneration() {
+      const output = document.getElementById('identity-key-output');
+      output.textContent = 'Generating identity key pair...';
+      output.className = 'output';
+
+      try {
+        const startTime = performance.now();
+        const keyPair = await signalService.generateKeyPair();
+        const endTime = performance.now();
+
+        output.innerHTML = `✅ Identity Key Pair Generated (${(endTime - startTime).toFixed(2)}ms)
+
+<strong>Public Key (${keyPair.publicKey.length} chars):</strong>
+${keyPair.publicKey.substring(0, 80)}...
+
+<strong>Private Key (${keyPair.privateKey.length} chars):</strong>
+${keyPair.privateKey.substring(0, 80)}...`;
+        output.className = 'output success';
+        
+        recordTestResult('Identity Key Generation', true);
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+        recordTestResult('Identity Key Generation', false, error.message);
+      }
+    }
+
+    async function testSignedPreKeyGeneration() {
+      const output = document.getElementById('signed-prekey-output');
+      output.textContent = 'Generating signed pre-key...';
+
+      try {
+        // First generate identity key
+        const identityKey = await signalService.generateKeyPair();
+        
+        const startTime = performance.now();
+        const signedPreKey = await signalService.generateSignedPreKey(identityKey.privateKey, 1);
+        const endTime = performance.now();
+
+        output.innerHTML = `✅ Signed Pre-Key Generated (${(endTime - startTime).toFixed(2)}ms)
+
+<strong>Key ID:</strong> ${signedPreKey.id}
+
+<strong>Public Key (${signedPreKey.publicKey.length} chars):</strong>
+${signedPreKey.publicKey.substring(0, 80)}...
+
+<strong>Signature (${signedPreKey.signature.length} chars):</strong>
+${signedPreKey.signature.substring(0, 80)}...`;
+        output.className = 'output success';
+        
+        recordTestResult('Signed Pre-Key Generation', true);
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+        recordTestResult('Signed Pre-Key Generation', false, error.message);
+      }
+    }
+
+    async function testOneTimePreKeyGeneration() {
+      const output = document.getElementById('onetime-prekey-output');
+      output.textContent = 'Generating one-time pre-keys...';
+
+      try {
+        const startTime = performance.now();
+        const preKeys = await signalService.generateOneTimePreKeys(1, 10);
+        const endTime = performance.now();
+
+        let keyList = preKeys.map(k => `  Key ${k.id}: ${k.publicKey.substring(0, 40)}...`).join('\n');
+
+        output.innerHTML = `✅ Generated ${preKeys.length} One-Time Pre-Keys (${(endTime - startTime).toFixed(2)}ms)
+
+<strong>Generated Keys:</strong>
+${keyList}`;
+        output.className = 'output success';
+        
+        recordTestResult('One-Time Pre-Key Generation', true);
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+        recordTestResult('One-Time Pre-Key Generation', false, error.message);
+      }
+    }
+
+    async function testSimpleEncryption() {
+      const output = document.getElementById('encryption-output');
+      const input = document.getElementById('encrypt-input').value;
+      
+      if (!input) {
+        output.textContent = '❌ Please enter a message to encrypt';
+        output.className = 'output error';
+        return;
+      }
+
+      output.textContent = 'Running encryption test...';
+
+      try {
+        // Generate two key pairs (simulating Alice and Bob)
+        const aliceKeys = await signalService.generateKeyPair();
+        const bobKeys = await signalService.generateKeyPair();
+
+        // Derive shared secret (both should get the same)
+        const aliceSharedSecret = await signalService.deriveSharedSecret(aliceKeys.privateKey, bobKeys.publicKey);
+        const bobSharedSecret = await signalService.deriveSharedSecret(bobKeys.privateKey, aliceKeys.publicKey);
+
+        // Verify shared secrets match
+        if (aliceSharedSecret !== bobSharedSecret) {
+          throw new Error('Shared secrets do not match!');
+        }
+
+        // Encrypt message
+        const startEncrypt = performance.now();
+        const encrypted = await signalService.encryptMessage(input, aliceSharedSecret);
+        const endEncrypt = performance.now();
+
+        // Decrypt message
+        const startDecrypt = performance.now();
+        const decrypted = await signalService.decryptMessage(encrypted, bobSharedSecret);
+        const endDecrypt = performance.now();
+
+        // Verify
+        if (decrypted !== input) {
+          throw new Error('Decryption mismatch!');
+        }
+
+        output.innerHTML = `✅ Encryption/Decryption Successful!
+
+<strong>Original Message:</strong>
+${input}
+
+<strong>Encrypted (ciphertext ${encrypted.ciphertext.length} chars):</strong>
+${encrypted.ciphertext.substring(0, 100)}...
+
+<strong>IV:</strong> ${encrypted.iv}
+
+<strong>Decrypted:</strong>
+${decrypted}
+
+<strong>Performance:</strong>
+  Encryption: ${(endEncrypt - startEncrypt).toFixed(2)}ms
+  Decryption: ${(endDecrypt - startDecrypt).toFixed(2)}ms
+
+<strong>Shared Secret Match:</strong> ✅ Yes (${aliceSharedSecret.length} chars)`;
+        output.className = 'output success';
+        
+        recordTestResult('AES-GCM Encryption/Decryption', true);
+        recordTestResult('Shared Secret Derivation', true);
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+        recordTestResult('AES-GCM Encryption/Decryption', false, error.message);
+      }
+    }
+
+    async function testLocalStorage() {
+      const output = document.getElementById('storage-output');
+      output.textContent = 'Testing local storage...';
+
+      try {
+        // Generate and store key
+        const keyPair = await signalService.generateKeyPair();
+        signalService.storeIdentityKey(keyPair);
+
+        // Retrieve key
+        const retrieved = signalService.getIdentityKey();
+
+        // Verify
+        if (!retrieved || retrieved.publicKey !== keyPair.publicKey) {
+          throw new Error('Retrieved key does not match stored key');
+        }
+
+        output.innerHTML = `✅ Local Storage Test Passed
+
+<strong>Stored Identity Key:</strong>
+Public: ${keyPair.publicKey.substring(0, 60)}...
+
+<strong>Retrieved Identity Key:</strong>
+Public: ${retrieved.publicKey.substring(0, 60)}...
+
+<strong>Match:</strong> ✅ Yes`;
+        output.className = 'output success';
+        
+        recordTestResult('Local Storage Operations', true);
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+        recordTestResult('Local Storage Operations', false, error.message);
+      }
+    }
+
+    function clearLocalStorage() {
+      signalService.clearAllKeys();
+      document.getElementById('storage-output').textContent = '🗑️ All encryption keys cleared from storage';
+      document.getElementById('storage-output').className = 'output';
+    }
+
+    // =============================================
+    // CHAT SIMULATION
+    // =============================================
+
+    async function initializeSimulation() {
+      try {
+        // Generate keys for both users
+        simulationState.aliceKeys = await signalService.generateKeyPair();
+        simulationState.bobKeys = await signalService.generateKeyPair();
+
+        // Derive shared secret
+        simulationState.sharedSecret = await signalService.deriveSharedSecret(
+          simulationState.aliceKeys.privateKey,
+          simulationState.bobKeys.publicKey
+        );
+
+        simulationState.initialized = true;
+        simulationState.aliceMessages = [];
+        simulationState.bobMessages = [];
+
+        // Update UI
+        document.getElementById('alice-keys').style.display = 'block';
+        document.getElementById('alice-keys').textContent = `Public Key: ${simulationState.aliceKeys.publicKey.substring(0, 50)}...`;
+        
+        document.getElementById('bob-keys').style.display = 'block';
+        document.getElementById('bob-keys').textContent = `Public Key: ${simulationState.bobKeys.publicKey.substring(0, 50)}...`;
+
+        updateMessageLists();
+        
+        recordTestResult('Session Initialization', true);
+        alert('✅ Encrypted session established between Alice and Bob!');
+      } catch (error) {
+        alert(`❌ Failed to initialize: ${error.message}`);
+        recordTestResult('Session Initialization', false, error.message);
+      }
+    }
+
+    async function sendAliceMessage() {
+      if (!simulationState.initialized) {
+        alert('Please initialize the session first!');
+        return;
+      }
+
+      const input = document.getElementById('alice-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      try {
+        const encrypted = await signalService.encryptMessage(message, simulationState.sharedSecret);
+        
+        simulationState.aliceMessages.push({
+          type: 'sent',
+          plaintext: message,
+          encrypted: encrypted,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
+        simulationState.bobMessages.push({
+          type: 'received',
+          encrypted: encrypted,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
+        // Decrypt on Bob's side
+        const decrypted = await signalService.decryptMessage(encrypted, simulationState.sharedSecret);
+        simulationState.bobMessages[simulationState.bobMessages.length - 1].plaintext = decrypted;
+
+        input.value = '';
+        updateMessageLists();
+      } catch (error) {
+        alert(`Encryption failed: ${error.message}`);
+      }
+    }
+
+    async function sendBobMessage() {
+      if (!simulationState.initialized) {
+        alert('Please initialize the session first!');
+        return;
+      }
+
+      const input = document.getElementById('bob-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      try {
+        const encrypted = await signalService.encryptMessage(message, simulationState.sharedSecret);
+        
+        simulationState.bobMessages.push({
+          type: 'sent',
+          plaintext: message,
+          encrypted: encrypted,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
+        simulationState.aliceMessages.push({
+          type: 'received',
+          encrypted: encrypted,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
+        // Decrypt on Alice's side
+        const decrypted = await signalService.decryptMessage(encrypted, simulationState.sharedSecret);
+        simulationState.aliceMessages[simulationState.aliceMessages.length - 1].plaintext = decrypted;
+
+        input.value = '';
+        updateMessageLists();
+      } catch (error) {
+        alert(`Encryption failed: ${error.message}`);
+      }
+    }
+
+    function updateMessageLists() {
+      const aliceList = document.getElementById('alice-messages');
+      const bobList = document.getElementById('bob-messages');
+
+      aliceList.innerHTML = simulationState.aliceMessages.map(msg => `
+        <div class="message ${msg.type}">
+          <div>${msg.plaintext || '[Encrypted]'}</div>
+          <div class="meta">🔒 ${msg.timestamp}</div>
+        </div>
+      `).join('');
+
+      bobList.innerHTML = simulationState.bobMessages.map(msg => `
+        <div class="message ${msg.type}">
+          <div>${msg.plaintext || '[Encrypted]'}</div>
+          <div class="meta">🔒 ${msg.timestamp}</div>
+        </div>
+      `).join('');
+
+      aliceList.scrollTop = aliceList.scrollHeight;
+      bobList.scrollTop = bobList.scrollHeight;
+    }
+
+    function clearSimulation() {
+      simulationState = {
+        initialized: false,
+        aliceKeys: null,
+        bobKeys: null,
+        sharedSecret: null,
+        aliceMessages: [],
+        bobMessages: []
+      };
+      
+      document.getElementById('alice-keys').style.display = 'none';
+      document.getElementById('bob-keys').style.display = 'none';
+      document.getElementById('alice-messages').innerHTML = '';
+      document.getElementById('bob-messages').innerHTML = '';
+    }
+
+    // =============================================
+    // TEST RESULTS MANAGEMENT
+    // =============================================
+
+    function recordTestResult(name, passed, error = null) {
+      const resultsContainer = document.getElementById('test-results');
+      
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'test-result';
+      resultDiv.innerHTML = `
+        <span class="status ${passed ? 'success' : 'error'}">${passed ? '✅ PASS' : '❌ FAIL'}</span>
+        <span class="name">${name}</span>
+        ${error ? `<span style="color: #f44336; font-size: 12px;">${error}</span>` : ''}
+      `;
+      
+      resultsContainer.appendChild(resultDiv);
+
+      // Update counts
+      testResults.total++;
+      if (passed) {
+        testResults.passed++;
+      } else {
+        testResults.failed++;
+      }
+      
+      updateSummary();
+    }
+
+    function updateSummary() {
+      document.getElementById('total-count').textContent = testResults.total;
+      document.getElementById('passed-count').textContent = testResults.passed;
+      document.getElementById('failed-count').textContent = testResults.failed;
+      document.getElementById('pending-count').textContent = testResults.pending;
+    }
+
+    async function runAllTests() {
+      clearResults();
+      
+      const tests = [
+        testIdentityKeyGeneration,
+        testSignedPreKeyGeneration,
+        testOneTimePreKeyGeneration,
+        testSimpleEncryption,
+        testLocalStorage,
+        initializeSimulation
+      ];
+
+      for (const test of tests) {
+        await test();
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between tests
+      }
+    }
+
+    function clearResults() {
+      testResults = { total: 0, passed: 0, failed: 0, pending: 0 };
+      document.getElementById('test-results').innerHTML = '';
+      updateSummary();
+    }
+
+    // =============================================
+    // INITIALIZATION
+    // =============================================
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🔐 NeuraChat Encryption Test Suite Loaded');
+      console.log('WebCrypto API available:', !!window.crypto.subtle);
+    });
+  </script>
+</body>
+</html>

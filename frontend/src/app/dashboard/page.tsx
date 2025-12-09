@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar from '@/components/Sidebar';
 import NewChatModal from '@/components/NewChatModal';
@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import socketClient from '@/lib/socket';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import AIMessageAssistant from '@/components/AIMessageAssistant';
+import { useMessageEncryption } from '@/lib/encryption/hooks';
 
 interface Message {
   id: string;
@@ -44,10 +45,12 @@ interface Chat {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, encryptionReady } = useAuth();
+  const { encryptMessage, decryptMessage, isEncrypted, establishSession } = useMessageEncryption();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [decryptedMessages, setDecryptedMessages] = useState<Record<string, string>>({});
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -67,6 +70,42 @@ export default function DashboardPage() {
     setIsAIAssistantOpen(false);
   };
 
+  /**
+   * Decrypt messages in the current chat
+   */
+  const decryptMessages = useCallback(async (msgs: Message[], chat: Chat) => {
+    const decrypted: Record<string, string> = {};
+    
+    for (const msg of msgs) {
+      if (isEncrypted(msg.content)) {
+        try {
+          // For private chats, use the other participant as sender/recipient
+          const senderId = msg.sender_id;
+          decrypted[msg.id] = await decryptMessage(msg.content, senderId);
+        } catch (error) {
+          console.error(`Failed to decrypt message ${msg.id}:`, error);
+          decrypted[msg.id] = '[Encrypted message]';
+        }
+      } else {
+        decrypted[msg.id] = msg.content;
+      }
+    }
+    
+    setDecryptedMessages(decrypted);
+  }, [decryptMessage, isEncrypted]);
+
+  /**
+   * Get the recipient ID for encryption (the other user in a private chat)
+   */
+  const getRecipientId = useCallback((chat: Chat): string | null => {
+    if (chat.type === 'private') {
+      const otherUser = chat.participants.find(p => p.id !== user?.id);
+      return otherUser?.id || null;
+    }
+    // For group chats, we'd need different handling (sender keys)
+    return null;
+  }, [user]);
+
   const fetchChats = async () => {
     try {
       const response: any = await api.getUserChats();
@@ -81,12 +120,20 @@ export default function DashboardPage() {
   const fetchMessages = async (chatId: string) => {
     try {
       const response: any = await api.getChatMessages(chatId);
-      setMessages(response.messages || []);
+      const msgs = response.messages || [];
+      setMessages(msgs);
       scrollToBottom();
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }
   };
+
+  // Decrypt messages when they change or chat changes
+  useEffect(() => {
+    if (messages.length > 0 && selectedChat) {
+      decryptMessages(messages, selectedChat);
+    }
+  }, [messages, selectedChat, decryptMessages]);
 
   useEffect(() => {
     fetchChats();
@@ -97,9 +144,23 @@ export default function DashboardPage() {
 
     socketClient.connect('');
 
-    socketClient.onNewMessage((message: Message) => {
+    socketClient.onNewMessage(async (message: Message) => {
       if (selectedChat && message.chat_id === selectedChat.id) {
         setMessages((prev) => [...prev, message]);
+        
+        // Decrypt new message
+        if (isEncrypted(message.content)) {
+          try {
+            const decrypted = await decryptMessage(message.content, message.sender_id);
+            setDecryptedMessages(prev => ({ ...prev, [message.id]: decrypted }));
+          } catch (error) {
+            console.error('Failed to decrypt new message:', error);
+            setDecryptedMessages(prev => ({ ...prev, [message.id]: '[Encrypted message]' }));
+          }
+        } else {
+          setDecryptedMessages(prev => ({ ...prev, [message.id]: message.content }));
+        }
+        
         scrollToBottom();
       }
       setChats((prev) =>
@@ -140,6 +201,16 @@ export default function DashboardPage() {
     if (selectedChat) {
       fetchMessages(selectedChat.id);
       socketClient.joinChat(selectedChat.id);
+      
+      // Establish encryption session for private chats
+      if (selectedChat.type === 'private' && encryptionReady) {
+        const recipientId = getRecipientId(selectedChat);
+        if (recipientId) {
+          establishSession(recipientId).catch(err => {
+            console.warn('Failed to establish session:', err);
+          });
+        }
+      }
     }
 
     return () => {
@@ -147,7 +218,7 @@ export default function DashboardPage() {
         socketClient.leaveChat(selectedChat.id);
       }
     };
-  }, [selectedChat]);
+  }, [selectedChat, encryptionReady, establishSession, getRecipientId]);
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -174,10 +245,28 @@ export default function DashboardPage() {
     setSendingMessage(true);
 
     try {
+      let finalContent = content;
+      
+      // Encrypt message for private chats if encryption is ready
+      if (selectedChat.type === 'private' && encryptionReady) {
+        const recipientId = getRecipientId(selectedChat);
+        if (recipientId) {
+          try {
+            // Establish session if needed
+            await establishSession(recipientId);
+            finalContent = await encryptMessage(content, recipientId);
+            console.log('🔒 Message encrypted');
+          } catch (error) {
+            console.error('Encryption failed, sending unencrypted:', error);
+            finalContent = content;
+          }
+        }
+      }
+      
       socketClient.sendMessage({
         chat_id: selectedChat.id,
         sender_id: user.id,
-        content,
+        content: finalContent,
         type: 'text',
       });
       socketClient.stopTyping(selectedChat.id, user.id);
@@ -442,9 +531,19 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1">
                   <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
-                  <p className="text-sm text-gray-400">
-                    {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
-                  </p>
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <span>
+                      {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
+                    </span>
+                    {selectedChat.type === 'private' && encryptionReady && (
+                      <span className="flex items-center gap-1 text-green-400" title="End-to-end encrypted">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                        E2EE
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -525,7 +624,23 @@ export default function DashboardPage() {
                                   : 'backdrop-blur-sm bg-gray-700/40 border border-gray-600/30 text-gray-100'
                               }`}
                             >
-                              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                              {/* Display decrypted content, with encryption indicator */}
+                              <div className="flex items-start gap-1">
+                                {isEncrypted(message.content) && (
+                                  <span title="Encrypted message">
+                                    <svg 
+                                      className={`w-3 h-3 mt-1 flex-shrink-0 ${isOwnMessage ? 'text-cyan-200' : 'text-green-400'}`} 
+                                      fill="currentColor" 
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </span>
+                                )}
+                                <p className="whitespace-pre-wrap break-words">
+                                  {decryptedMessages[message.id] || message.content}
+                                </p>
+                              </div>
                               <p className={`text-xs mt-1 ${isOwnMessage ? 'text-cyan-100' : 'text-gray-400'}`}>
                                 {formatMessageTime(message.created_at)}
                               </p>
