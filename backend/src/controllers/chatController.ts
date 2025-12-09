@@ -68,6 +68,7 @@ export const createChat = async (req: AuthRequest, res: Response): Promise<void>
           type: 'system',
           title: 'New Group',
           content: `You were added to ${name}`,
+          chatId: chatData.id,
         });
       }
     }
@@ -289,6 +290,7 @@ export const addParticipant = async (req: AuthRequest, res: Response): Promise<v
       type: 'system',
       title: 'New Group',
       content: `You were added to ${chatData?.name || 'a new chat'}`,
+      chatId: chatId,
     });
 
     res.status(201).json({ message: 'Participant added successfully', participant: data });
