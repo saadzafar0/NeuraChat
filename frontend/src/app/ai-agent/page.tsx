@@ -29,6 +29,7 @@ export default function AIAgentPage() {
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchSession = async () => {
@@ -129,12 +130,30 @@ export default function AIAgentPage() {
         {/* Background Grid Effect */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,217,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,217,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none"></div>
         
-        <Sidebar />
+        <Sidebar isMobileOpen={isSidebarOpen} onMobileClose={() => setIsSidebarOpen(false)} />
+
+        {/* Mobile Header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-gray-800/30 border-b border-gray-700/50 p-4 flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="text-gray-400 hover:text-white transition-colors p-2"
+            aria-label="Open menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+              AI Agent
+            </span>
+          </h1>
+        </div>
 
         {/* AI Agent Chat Area */}
-        <div className="flex-1 flex flex-col relative z-10">
+        <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0">
           {/* Header */}
-          <div className="p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+          <div className="p-3 lg:p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
             
             <div className="flex items-center gap-3">
@@ -158,7 +177,7 @@ export default function AIAgentPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -200,7 +219,7 @@ export default function AIAgentPage() {
                   {/* User Message */}
                   {interaction.user_query && (
                     <div className="flex justify-end">
-                      <div className="flex gap-2 max-w-[70%] flex-row-reverse">
+                      <div className="flex gap-2 max-w-[85%] sm:max-w-[70%] flex-row-reverse">
                         <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
                           {user ? getInitials(user.full_name || user.username) : 'U'}
                         </div>
@@ -219,7 +238,7 @@ export default function AIAgentPage() {
                   {/* AI Response */}
                   {interaction.ai_response && (
                     <div className="flex justify-start">
-                      <div className="flex gap-2 max-w-[70%]">
+                      <div className="flex gap-2 max-w-[85%] sm:max-w-[70%]">
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-purple-500/30">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -266,7 +285,7 @@ export default function AIAgentPage() {
           </div>
 
           {/* Message Input */}
-          <div className="p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+          <div className="p-3 lg:p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
             
             <div className="flex gap-2">
@@ -283,7 +302,7 @@ export default function AIAgentPage() {
                     }
                   }}
                   disabled={sendingMessage}
-                  className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  className="w-full px-3 lg:px-4 py-2 lg:py-3 text-sm lg:text-base bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                 />
                 <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-purple-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
               </div>
@@ -295,11 +314,16 @@ export default function AIAgentPage() {
                 className="relative group"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 px-6 py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium shadow-lg">
+                <div className="relative bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 px-4 lg:px-6 py-2 lg:py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm lg:text-base font-medium shadow-lg">
                   {sendingMessage ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 lg:w-5 lg:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
-                    'Send'
+                    <span className="hidden sm:inline">Send</span>
+                  )}
+                  {!sendingMessage && (
+                    <svg className="sm:hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
                   )}
                 </div>
               </button>

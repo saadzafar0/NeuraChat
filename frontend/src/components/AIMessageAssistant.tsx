@@ -156,15 +156,15 @@ export default function AIMessageAssistant({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="relative w-full max-w-2xl max-h-[95vh] flex flex-col">
         {/* Glow Effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl"></div>
         
         {/* Modal */}
         <div className="relative backdrop-blur-xl bg-gray-800/40 rounded-2xl border border-gray-700/50 shadow-2xl flex flex-col max-h-[90vh]">
           {/* Header */}
-          <div className="p-6 border-b border-gray-700/50">
+          <div className="p-4 sm:p-6 border-b border-gray-700/50">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
@@ -206,7 +206,7 @@ export default function AIMessageAssistant({
             </div>
 
             {/* AI Actions Grid */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               {aiActions.map((action) => (
                 <button
                   key={action.id}
@@ -273,7 +273,7 @@ export default function AIMessageAssistant({
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-700/50 flex gap-3">
+          <div className="p-4 sm:p-6 border-t border-gray-700/50 flex gap-3">
             <button
               onClick={handleClose}
               className="flex-1 px-4 py-2 bg-gray-700/30 hover:bg-gray-700/50 text-gray-200 font-medium rounded-lg transition-all duration-300"

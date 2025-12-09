@@ -116,14 +116,14 @@ export default function NewChatModal({ isOpen, onClose, onChatCreated }: NewChat
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md max-h-[95vh] overflow-hidden">
         {/* Glow Effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl"></div>
         
         {/* Modal */}
-        <div className="relative backdrop-blur-xl bg-gray-800/40 rounded-2xl border border-gray-700/50 max-h-[85vh] flex flex-col shadow-2xl">
+        <div className="relative backdrop-blur-xl bg-gray-800/40 rounded-2xl border border-gray-700/50 max-h-[95vh] flex flex-col shadow-2xl">
           {/* Header */}
-          <div className="p-6 border-b border-gray-700/50">
+          <div className="p-4 sm:p-6 border-b border-gray-700/50">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">
                 <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
@@ -226,7 +226,7 @@ export default function NewChatModal({ isOpen, onClose, onChatCreated }: NewChat
           )}
 
           {/* Search Results */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {searchResults.length > 0 ? (
               <div className="space-y-2">
                 {searchResults.map((searchUser) => {
@@ -283,7 +283,7 @@ export default function NewChatModal({ isOpen, onClose, onChatCreated }: NewChat
           )}
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-700/50 flex gap-3">
+          <div className="p-4 sm:p-6 border-t border-gray-700/50 flex gap-3">
             <button
               onClick={onClose}
               className="flex-1 px-4 py-2 bg-gray-700/30 hover:bg-gray-700/50 text-gray-200 font-medium rounded-lg transition-all duration-300"

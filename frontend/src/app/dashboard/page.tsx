@@ -9,6 +9,11 @@ import api from '@/lib/api';
 import socketClient from '@/lib/socket';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import AIMessageAssistant from '@/components/AIMessageAssistant';
+import { IncomingCallModal } from '@/components/incoming-call-modal';
+import { InCallUI } from '@/components/in-call-ui';
+import { useCall } from '@/hooks/useCall';
+import { OutgoingCallUI } from '@/components/outgoing-call-ui';
+import { useRouter } from 'next/navigation';
 
 interface Message {
   id: string;
@@ -54,6 +59,7 @@ interface Notification {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -70,9 +76,14 @@ export default function DashboardPage() {
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const joinedChatsRef = useRef<Set<string>>(new Set());
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Call functionality
+  const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleSpeaker, resetCallSession } = useCall();
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
     setMessageInput(enhancedMessage);
@@ -155,9 +166,23 @@ export default function DashboardPage() {
   const fetchChats = async () => {
     try {
       const response: any = await api.getUserChats();
-      setChats(response.chats || []);
-    } catch (error) {
-      console.error('Failed to fetch chats:', error);
+      const fetchedChats: Chat[] = response?.chats || [];
+      setChats(fetchedChats);
+
+      // Proactively join all chat rooms so incoming messages arrive even when not open
+      socketClient.onReady((sock) => {
+        fetchedChats.forEach((chat) => {
+          if (!joinedChatsRef.current.has(chat.id)) {
+            socketClient.joinChat(chat.id);
+            joinedChatsRef.current.add(chat.id);
+          }
+        });
+      });
+    } catch (error: any) {
+      const friendlyMessage = error?.message || 'Unknown error fetching chats';
+      const status = error?.status ?? 'n/a';
+      console.error(`Failed to fetch chats [status=${status}]:`, error);
+      alert(`Could not load chats (status: ${status}). ${friendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -181,54 +206,72 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    socketClient.connect('');
+    const cleanupFns: Array<() => void> = [];
 
-    socketClient.onNewMessage((message: Message) => {
-      if (selectedChat && message.chat_id === selectedChat.id) {
-        setMessages((prev) => [...prev, message]);
-        scrollToBottom();
-      }
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === message.chat_id
-            ? {
-                ...chat,
-                last_message: {
-                  content: message.content,
-                  created_at: message.created_at,
-                  sender_id: message.sender_id,
-                },
-              }
-            : chat
-        )
-      );
-    });
+    const attachHandlers = (socketInstance: any) => {
+      const dashboardIncomingCallHandler = (data: any) => {
+        console.log('🎯 Dashboard received incoming-call event (debug only):', data);
+        console.log('🎯 Current callState from useCall:', callState);
+        console.log('🎯 Current currentCall from useCall:', currentCall);
+      };
+      socketInstance.on('incoming-call', dashboardIncomingCallHandler);
 
-    // Listen for real-time notifications
-    socketClient.on('notification:new', (notification: Notification) => {
-      if (!notification.is_read) {
-        setNotifications((prev) => [notification, ...prev]);
-      }
-    });
+      // Listen for real-time notifications
+      socketInstance.on('notification:new', (notification: Notification) => {
+        if (!notification.is_read) {
+          setNotifications((prev) => [notification, ...prev]);
+        }
+      });
 
-    socketClient.onMessageUpdated((message: Message) => {
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === message.id ? message : msg))
-      );
-    });
+      socketClient.onNewMessage((message: Message) => {
+        if (selectedChat && message.chat_id === selectedChat.id) {
+          setMessages((prev) => [...prev, message]);
+          scrollToBottom();
+        }
+        setChats((prev) =>
+          prev.map((chat) =>
+            chat.id === message.chat_id
+              ? {
+                  ...chat,
+                  last_message: {
+                    content: message.content,
+                    created_at: message.created_at,
+                    sender_id: message.sender_id,
+                  },
+                }
+              : chat
+          )
+        );
+      });
 
-    socketClient.onMessageDeleted(({ messageId }) => {
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      socketClient.onMessageUpdated((message: Message) => {
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === message.id ? message : msg))
+        );
+      });
+
+      socketClient.onMessageDeleted(({ messageId }) => {
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      });
+
+      return () => {
+        socketInstance.off('incoming-call', dashboardIncomingCallHandler);
+        socketInstance.off('notification:new');
+        socketClient.offNewMessage();
+        socketClient.offMessageUpdated();
+        socketClient.offMessageDeleted();
+      };
+    };
+
+    socketClient.onReady((sock) => {
+      const cleanup = attachHandlers(sock);
+      cleanupFns.push(cleanup);
     });
 
     return () => {
-      socketClient.offNewMessage();
-      socketClient.offMessageUpdated();
-      socketClient.offMessageDeleted();
-      socketClient.off('notification:new');
-      socketClient.disconnect();
+      cleanupFns.forEach((fn) => fn());
     };
-  }, [user, selectedChat]);
+  }, [user, selectedChat, callState, currentCall]);
 
   useEffect(() => {
     if (selectedChat) {
@@ -413,7 +456,36 @@ export default function DashboardPage() {
         {/* Background Grid Effect */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,217,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,217,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none"></div>
         
-        <Sidebar />
+        <Sidebar isMobileOpen={isSidebarOpen} onMobileClose={() => setIsSidebarOpen(false)} />
+
+        {/* Mobile Header with Menu Toggle */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-gray-800/30 border-b border-gray-700/50 p-4 flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="text-gray-400 hover:text-white transition-colors p-2"
+            aria-label="Open menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              NeuraChat
+            </span>
+          </h1>
+          {selectedChat && (
+            <button
+              onClick={() => setSelectedChat(null)}
+              className="ml-auto text-gray-400 hover:text-white transition-colors p-2"
+              aria-label="Back to chats"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+          )}
+        </div>
 
         {/* NOTIFICATION BUBBLE - TOP RIGHT */}
         <div className="fixed top-6 right-6 z-50">
@@ -449,13 +521,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Chat List */}
-        <div className="w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex flex-col relative z-10">
+        <div className={`
+          ${selectedChat ? 'hidden lg:flex' : 'flex'}
+          w-full lg:w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex-col relative z-10
+          ${selectedChat ? '' : 'mt-16 lg:mt-0'}
+        `}>
           {/* Header with Gradient */}
-          <div className="p-6 border-b border-gray-700/50 relative">
+          <div className="p-4 lg:p-6 border-b border-gray-700/50 relative">
             {/* Glow Effect */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
             
-            <h1 className="text-2xl font-bold mb-4">
+            <h1 className="text-xl lg:text-2xl font-bold mb-4 hidden lg:block">
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 Chats
               </span>
@@ -566,9 +642,9 @@ export default function DashboardPage() {
 
         {/* Chat Area */}
         {selectedChat ? (
-          <div className="flex-1 flex flex-col relative z-10">
+          <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0">
             {/* Chat Header with Gradient Border */}
-            <div className="p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+            <div className="p-3 lg:p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
               
               <div className="flex items-center gap-3">
@@ -579,16 +655,63 @@ export default function DashboardPage() {
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 shadow-lg shadow-emerald-500/50"></div>
                 </div>
                 <div className="flex-1">
-                  <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
+                    {callState === 'in-call' && (
+                      <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full border border-cyan-500/30">
+                        In Call
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-400">
                     {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
                   </p>
                 </div>
+                {/* Call button - only show for private chats with 2 participants */}
+                {selectedChat.type === 'private' && selectedChat.participants.length === 2 && (
+                  <button
+                    onClick={() => {
+                      const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
+                      if (otherUser) {
+                        const otherUserName =
+                          otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
+                        initiateCall(selectedChat.id, otherUser.id, otherUserName);
+                      }
+                    }}
+                    disabled={callState !== 'idle'}
+                    className={`relative group ${
+                      callState !== 'idle' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title="Start audio call"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </div>
+                  </button>
+                )}
+                {/* End call button - show when in call */}
+                {callState === 'in-call' && (
+                  <button
+                    onClick={endCall}
+                    className="relative group"
+                    title="End call"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-r from-red-500 to-pink-600 hover:from-pink-500 hover:to-red-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
               {messages.map((message) => {
                 const isOwnMessage = message.sender_id === user?.id;
                 const sender = message.users || selectedChat.participants.find((p) => p.id === message.sender_id);
@@ -599,7 +722,7 @@ export default function DashboardPage() {
                     key={message.id}
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`flex gap-2 max-w-[70%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`flex gap-2 max-w-[85%] sm:max-w-[70%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {!isOwnMessage && (
                         <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
                           {getInitials(sender?.full_name || sender?.username || 'U')}
@@ -707,7 +830,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Message Input with Glow */}
-            <div className="p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+            <div className="p-3 lg:p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
               
               <div className="flex gap-2">
@@ -727,7 +850,7 @@ export default function DashboardPage() {
                       }
                     }}
                     disabled={sendingMessage}
-                    className="w-full px-4 py-3 bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    className="w-full px-3 lg:px-4 py-2 lg:py-3 text-sm lg:text-base bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
                   />
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
                 </div>
@@ -742,12 +865,12 @@ export default function DashboardPage() {
                   <div className={`absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg blur transition-opacity ${
                     messageInput.trim() ? 'opacity-75 group-hover:opacity-100' : 'opacity-30'
                   }`}></div>
-                  <div className={`relative px-4 py-3 rounded-lg transition-all duration-300 shadow-lg ${
+                  <div className={`relative px-3 lg:px-4 py-2 lg:py-3 rounded-lg transition-all duration-300 shadow-lg ${
                     messageInput.trim()
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 text-white'
                       : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
                   }`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
@@ -760,15 +883,18 @@ export default function DashboardPage() {
                   className="relative group"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 px-6 py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium shadow-lg">
-                    Send
+                  <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 px-4 lg:px-6 py-2 lg:py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm lg:text-base font-medium shadow-lg">
+                    <span className="hidden sm:inline">Send</span>
+                    <svg className="sm:hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
                   </div>
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center relative z-10">
+          <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
             <div className="text-center">
               <div className="relative w-24 h-24 mx-auto mb-4">
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full blur-lg opacity-50 animate-pulse"></div>
@@ -952,6 +1078,96 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Incoming Call Modal */}
+      {callState === 'ringing' && currentCall && (
+        <>
+          {console.log('🎯 Rendering IncomingCallModal, callState:', callState, 'currentCall:', currentCall)}
+          <IncomingCallModal
+            isOpen={true}
+            callerName={
+              (() => {
+                // Try to find caller name from selectedChat first
+                if (selectedChat?.participants) {
+                  const caller = selectedChat.participants.find((p) => p.id === currentCall.fromUserId);
+                  if (caller) {
+                    return caller.full_name || caller.username || 'Unknown';
+                  }
+                }
+                // If not found, try to find from all chats
+                const chatWithCaller = chats.find((chat) => 
+                  chat.id === currentCall.chatId && 
+                  chat.participants.some((p) => p.id === currentCall.fromUserId)
+                );
+                if (chatWithCaller) {
+                  const caller = chatWithCaller.participants.find((p) => p.id === currentCall.fromUserId);
+                  return caller?.full_name || caller?.username || 'Unknown';
+                }
+                return 'Unknown Caller';
+              })()
+            }
+            onAccept={acceptCall}
+            onReject={rejectCall}
+            isProcessing={false}
+          />
+        </>
+      )}
+
+      {/* In-Call UI */}
+      {callState === 'in-call' && currentCall && (
+        <InCallUI
+          isOpen={true}
+          otherUserName={
+            (() => {
+              // Find the other user's name
+              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
+              if (chatWithOtherUser?.participants) {
+                const otherUser = chatWithOtherUser.participants.find(
+                  (p) => p.id !== user?.id
+                );
+                if (otherUser) {
+                  return otherUser.full_name || otherUser.username || 'Unknown';
+                }
+              }
+              return 'Unknown User';
+            })()
+          }
+          isMuted={isMuted}
+          isSpeakerMuted={isSpeakerMuted}
+          callStartedAt={callStartedAt}
+          audioTrack={currentCall.audioTrack}
+          onToggleMute={toggleMute}
+          onToggleSpeaker={toggleSpeaker}
+          onEndCall={endCall}
+        />
+      )}
+
+      {/* Outgoing call UI */}
+      {(callState === 'calling' || callState === 'rejected') && currentCall?.isCaller && (
+        <OutgoingCallUI
+          otherUserName={
+            (() => {
+              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
+              if (chatWithOtherUser?.participants) {
+                const otherUser = chatWithOtherUser.participants.find((p) => p.id !== user?.id);
+                if (otherUser) {
+                  return otherUser.full_name || otherUser.username || 'Unknown';
+                }
+              }
+              return currentCall.displayName || 'Unknown User';
+            })()
+          }
+          status={callState === 'rejected' ? 'rejected' : 'calling'}
+          onCancel={endCall}
+          onReturnToChat={() => {
+            resetCallSession();
+          }}
+          onReturnToDashboard={() => {
+            resetCallSession();
+            router.push('/dashboard');
+          }}
+        />
       )}
     </AuthGuard>
   );

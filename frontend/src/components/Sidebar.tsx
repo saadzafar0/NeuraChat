@@ -1,10 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function Sidebar() {
+interface SidebarProps {
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export default function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
 
@@ -24,13 +30,50 @@ export default function Sidebar() {
       .slice(0, 2);
   };
 
+  const handleLinkClick = () => {
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   return (
-    <div className="w-20 bg-gradient-to-b from-gray-900/95 to-gray-900/90 backdrop-blur-xl border-r border-gray-700/50 flex flex-col items-center py-6 space-y-8 relative">
+    <>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-20 bg-gradient-to-b from-gray-900/95 to-gray-900/90 backdrop-blur-xl border-r border-gray-700/50 
+          flex flex-col items-center py-6 space-y-8 relative
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
       {/* Vertical Neon Line */}
       <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500/50 via-blue-500/50 to-purple-500/50"></div>
       
+      {/* Close Button (Mobile Only) */}
+      {onMobileClose && (
+        <button
+          onClick={onMobileClose}
+          className="lg:hidden absolute top-4 right-4 text-gray-400 hover:text-white transition-colors p-2"
+          aria-label="Close menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+
       {/* Logo with Glow Effect */}
-      <Link href="/dashboard" className="flex items-center justify-center group">
+      <Link href="/dashboard" onClick={handleLinkClick} className="flex items-center justify-center group">
         <div className="relative">
           {/* Glow Effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl blur-md opacity-75 group-hover:opacity-100 transition-opacity"></div>
@@ -61,6 +104,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               className="relative group"
               title={item.label}
             >
@@ -110,6 +154,7 @@ export default function Sidebar() {
 
       {/* Bottom Glow */}
       <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-cyan-500/5 to-transparent pointer-events-none"></div>
-    </div>
+      </div>
+    </>
   );
 }

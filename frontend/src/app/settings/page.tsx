@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Local state to reflect updates immediately
   const [displayName, setDisplayName] = useState('');
@@ -63,18 +64,36 @@ export default function SettingsPage() {
           <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
         </div>
 
-        <Sidebar />
+        <Sidebar isMobileOpen={isSidebarOpen} onMobileClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex-1 overflow-y-auto relative z-10">
-          <div className="max-w-4xl mx-auto p-8">
+        {/* Mobile Header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-gray-800/30 border-b border-gray-700/50 p-4 flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="text-gray-400 hover:text-white transition-colors p-2"
+            aria-label="Open menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              Settings
+            </span>
+          </h1>
+        </div>
+
+        <div className="flex-1 overflow-y-auto relative z-10 mt-16 lg:mt-0">
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             {/* Header with Gradient */}
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold mb-2">
+            <div className="mb-6 lg:mb-8">
+              <h1 className="text-2xl lg:text-4xl font-bold mb-2 hidden lg:block">
                 <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
                   Settings
                 </span>
               </h1>
-              <p className="text-gray-400">Manage your account and preferences</p>
+              <p className="text-gray-400 text-sm lg:text-base hidden lg:block">Manage your account and preferences</p>
             </div>
 
             {/* Profile Section - Glass Card */}
