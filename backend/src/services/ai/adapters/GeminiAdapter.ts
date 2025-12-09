@@ -3,7 +3,7 @@ import { AIProvider, AIResponse, AIOptions } from '../interfaces/AIProvider';
 
 export class GeminiAdapter implements AIProvider {
   private apiKey: string;
-  private defaultModel = 'gemini-2.0-flash';
+  private defaultModel = 'gemini-2.5-flash';
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   constructor() {

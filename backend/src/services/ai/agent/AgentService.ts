@@ -30,7 +30,7 @@ export class AgentService {
     // Fallback to Gemini for unsupported providers (tool calling requirement)
     console.warn(`[Agent] Provider '${provider}' doesn't support tool calling. Using Gemini.`);
     const fallbackLlm = new ChatGoogleGenerativeAI({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       maxOutputTokens: 2048,
       apiKey: process.env.GEMINI_API_KEY,
       temperature: 0.3,
