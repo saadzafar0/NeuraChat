@@ -12,6 +12,7 @@ import messageRoutes from './routes/messageRoutes';
 import callRoutes from './routes/callRoutes';
 import aiRoutes from './routes/aiRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import mediaRoutes from './routes/mediaRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -64,6 +65,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/calls', callRoutes); // Yet to be implemented
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes); // Yet to be implemented
+app.use('/api/media', mediaRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -178,6 +180,17 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+  });
+
+  // File sharing events
+  socket.on('file-uploaded', (fileData) => {
+    // Broadcast to all users in the chat (except sender)
+    socket.to(`chat:${fileData.chatId}`).emit('new-file', fileData);
+  });
+
+  socket.on('file-deleted', (fileData) => {
+    // Broadcast to all users in the chat
+    io.to(`chat:${fileData.chatId}`).emit('file-removed', fileData);
   });
 });
 
