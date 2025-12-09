@@ -14,6 +14,7 @@ import { InCallUI } from '@/components/in-call-ui';
 import { useCall } from '@/hooks/useCall';
 import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 import { useRouter } from 'next/navigation';
+import FileUploadModal from '@/components/FileUploadModal';
 
 interface Message {
   id: string;
@@ -81,7 +82,8 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+  const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
+
   // Call functionality
   const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleSpeaker, resetCallSession } = useCall();
 
@@ -786,7 +788,57 @@ export default function DashboardPage() {
                                   : 'backdrop-blur-sm bg-gray-700/40 border border-gray-600/30 text-gray-100'
                               }`}
                             >
-                              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                              {/* Render based on message type */}
+                              {message.type === 'media' ? (
+                                <div className="space-y-2">
+                                  {/* Check if it's an image */}
+                                  {message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                    <img
+                                      src={message.content}
+                                      alt="Shared image"
+                                      className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(message.content, '_blank')}
+                                    />
+                                  ) : message.content.match(/\.(mp4|webm|ogg)$/i) ? (
+                                    /* Video */
+                                    <video
+                                      controls
+                                      className="max-w-full max-h-96 rounded-lg"
+                                      src={message.content}
+                                    />
+                                  ) : message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                                    /* Audio */
+                                    <audio
+                                      controls
+                                      className="w-full"
+                                      src={message.content}
+                                    />
+                                  ) : (
+                                    /* Other file types - show download link */
+                                    <a
+                                      href={message.content}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                    >
+                                      <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">
+                                          {message.content.split('/').pop()?.split('?')[0] || 'Download File'}
+                                        </p>
+                                        <p className="text-xs opacity-75">Click to download</p>
+                                      </div>
+                                    </a>
+                                  )}
+                                </div>
+                              ) : (
+                                /* Regular text message */
+                                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                              )}
                               <p className={`text-xs mt-1 ${isOwnMessage ? 'text-cyan-100' : 'text-gray-400'}`}>
                                 {formatMessageTime(message.created_at)}
                               </p>
@@ -796,7 +848,8 @@ export default function DashboardPage() {
                                 <div
                                   className={`absolute ${isOwnMessage ? 'left-0' : 'right-0'} top-full mt-1 backdrop-blur-xl bg-gray-800/90 border border-gray-700/50 rounded-lg shadow-2xl py-1 z-20 min-w-[120px]`}
                                 >
-                                  {isOwnMessage && (
+                                  {/* Only allow editing text messages */}
+                                  {isOwnMessage && message.type === 'text' && (
                                     <button
                                       onClick={() => startEditMessage(message)}
                                       className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-cyan-500/20 transition-colors flex items-center gap-2"
@@ -854,6 +907,20 @@ export default function DashboardPage() {
                   />
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
                 </div>
+
+                {/* File Upload Button */}
+                <button
+                  onClick={() => setIsFileUploadOpen(true)}
+                  className="relative group"
+                  title="Share File"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative px-3 lg:px-4 py-2 lg:py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-purple-500 hover:to-blue-600 text-white rounded-lg transition-all duration-300 shadow-lg">
+                    <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  </div>
+                </button>
 
                 {/* AI Assistant Button */}
                 <button
@@ -1169,6 +1236,18 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {/* File Upload Modal */}
+      <FileUploadModal
+        isOpen={isFileUploadOpen}
+        onClose={() => setIsFileUploadOpen(false)}
+        chatId={selectedChat?.id || ''}
+        onFileUploaded={() => {
+          if (selectedChat) {
+            fetchMessages(selectedChat.id);
+          }
+        }}
+      />
     </AuthGuard>
   );
 }

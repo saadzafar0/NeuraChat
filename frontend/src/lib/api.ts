@@ -257,6 +257,22 @@ class APIClient {
     });
   }
 
+  // Media/File endpoints
+  async uploadFile(formData: FormData) {
+    const response = await fetch(`${this.baseURL}/api/media/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData, // Don't set Content-Type, let browser set it with boundary
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Upload failed');
+    }
+
+    return response.json();
+  }
+
   /**
    * Get or create the main AI agent session for the current user
    * This is a singleton session that persists across the app
