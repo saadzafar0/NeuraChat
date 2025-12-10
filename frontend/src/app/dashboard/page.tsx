@@ -43,6 +43,7 @@ interface Chat {
     content: string;
     created_at: string;
     sender_id: string;
+    type?: 'text' | 'media' | 'system';
   };
   participants: Array<{
     id: string;
@@ -726,7 +727,25 @@ export default function DashboardPage() {
                           <p className={`text-sm truncate flex-1 ${
                             unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-400'
                           }`}>
-                            {chat.last_message?.content || 'No messages yet'}
+                            {chat.last_message ? (
+                              chat.last_message.type === 'media' ? (
+                                <span className="flex items-center gap-1">
+                                  {chat.last_message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> Photo</>
+                                  ) : chat.last_message.content.match(/\.(mp4|webm|ogg)$/i) ? (
+                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Video</>
+                                  ) : chat.last_message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg> Audio</>
+                                  ) : (
+                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg> File</>
+                                  )}
+                                </span>
+                              ) : (
+                                chat.last_message.content
+                              )
+                            ) : (
+                              'No messages yet'
+                            )}
                           </p>
                           {/* Unread badge on the right (WhatsApp style) */}
                           {unreadCount > 0 && (
@@ -978,11 +997,25 @@ export default function DashboardPage() {
                                     />
                                   ) : (
                                     /* Other file types - show download link */
-                                    <a
-                                      href={message.content}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(message.content);
+                                          const blob = await response.blob();
+                                          const url = window.URL.createObjectURL(blob);
+                                          const a = document.createElement('a');
+                                          a.href = url;
+                                          a.download = message.content.split('/').pop()?.split('?')[0] || 'download';
+                                          document.body.appendChild(a);
+                                          a.click();
+                                          window.URL.revokeObjectURL(url);
+                                          document.body.removeChild(a);
+                                        } catch (error) {
+                                          console.error('Download failed:', error);
+                                          window.open(message.content, '_blank');
+                                        }
+                                      }}
+                                      className="flex items-center gap-2 hover:opacity-80 transition-opacity w-full text-left"
                                     >
                                       <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -995,7 +1028,7 @@ export default function DashboardPage() {
                                         </p>
                                         <p className="text-xs opacity-75">Click to download</p>
                                       </div>
-                                    </a>
+                                    </button>
                                   )}
                                 </div>
                               ) : (
