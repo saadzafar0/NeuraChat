@@ -11,7 +11,6 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import AIMessageAssistant from '@/components/AIMessageAssistant';
 import { IncomingCallModal } from '@/components/incoming-call-modal';
 import { InCallUI } from '@/components/in-call-ui';
-import { InCallVideoUI } from '@/components/in-call-video-ui';
 import { useCall } from '@/hooks/useCall';
 import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 import { useRouter } from 'next/navigation';
@@ -92,8 +91,7 @@ export default function DashboardPage() {
   const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
 
   // Call functionality
-  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteVideoTracks, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, toggleSpeaker, resetCallSession, handleJoin } = useCall();
-  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleSpeaker, resetCallSession } = useCall();
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
     setMessageInput(enhancedMessage);
@@ -191,8 +189,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchChats();
-    // TODO: Uncomment when notification backend is implemented
-    // fetchNotifications();
+    fetchNotifications();
   }, []);
 
   useEffect(() => {
@@ -445,45 +442,6 @@ export default function DashboardPage() {
     }
     const otherUser = chat.participants.find((p) => p.id !== user?.id);
     return getInitials(otherUser?.full_name || otherUser?.username || 'U');
-  };
-
-  const getMessagePreview = (message: { content: string; type: string } | undefined) => {
-    if (!message) return 'No messages yet';
-    
-    if (message.type === 'media') {
-      try {
-        // Try to parse JSON content
-        if (message.content.trim().startsWith('{')) {
-          const mediaData = JSON.parse(message.content);
-          const { fileType, fileName, customMessage } = mediaData;
-          
-          // If there's a custom message, show it
-          if (customMessage) {
-            return customMessage;
-          }
-          
-          // Otherwise show file type indicator
-          const icons: { [key: string]: string } = {
-            image: '🖼️',
-            video: '🎥',
-            audio: '🎵',
-            document: '📄',
-            file: '📎'
-          };
-          const icon = icons[fileType] || '📎';
-          return `${icon} ${fileName}`;
-        } else {
-          // Old format - plain text
-          return message.content;
-        }
-      } catch {
-        // Failed to parse - return as is
-        return message.content;
-      }
-    }
-    
-    // Regular text message
-    return message.content;
   };
 
   const formatTime = (dateString: string) => {
@@ -767,48 +725,30 @@ export default function DashboardPage() {
                     {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
                   </p>
                 </div>
-                {/* Call buttons - only show for private chats with 2 participants */}
-                {selectedChat.type === 'private' && selectedChat.participants.length === 2 && callState === 'idle' && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
-                        if (otherUser) {
-                          const otherUserName =
-                            otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
-                          initiateCall(selectedChat.id, otherUser.id, otherUserName, 'audio');
-                        }
-                      }}
-                      className="relative group"
-                      title="Start audio call"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
-                        if (otherUser) {
-                          const otherUserName =
-                            otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
-                          initiateCall(selectedChat.id, otherUser.id, otherUserName, 'video');
-                        }
-                      }}
-                      className="relative group"
-                      title="Start video call"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="relative bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    </button>
-                  </div>
+                {/* Call button - only show for private chats with 2 participants */}
+                {selectedChat.type === 'private' && selectedChat.participants.length === 2 && (
+                  <button
+                    onClick={() => {
+                      const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
+                      if (otherUser) {
+                        const otherUserName =
+                          otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
+                        initiateCall(selectedChat.id, otherUser.id, otherUserName);
+                      }
+                    }}
+                    disabled={callState !== 'idle'}
+                    className={`relative group ${
+                      callState !== 'idle' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title="Start audio call"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </div>
+                  </button>
                 )}
                 {/* End call button - show when in call */}
                 {callState === 'in-call' && (
@@ -906,123 +846,51 @@ export default function DashboardPage() {
                             >
                               {/* Render based on message type */}
                               {message.type === 'media' ? (
-                                (() => {
-                                  try {
-                                    // Check if content is JSON (starts with '{')
-                                    if (message.content.trim().startsWith('{')) {
-                                      // Parse JSON content for new media messages
-                                      const mediaData = JSON.parse(message.content);
-                                      const { fileName, fileType, fileUrl, thumbnailUrl, fileSize, mimeType, customMessage } = mediaData;
-
-                                      return (
-                                        <div className="space-y-2">
-                                          {/* Show custom message if provided */}
-                                          {customMessage && (
-                                            <p className="text-sm mb-2">{customMessage}</p>
-                                          )}
-
-                                          {/* Render based on file type */}
-                                          {fileType === 'image' ? (
-                                            <div className="relative group">
-                                              <img
-                                                src={thumbnailUrl || fileUrl}
-                                                alt={fileName}
-                                                className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                onClick={() => window.open(fileUrl, '_blank')}
-                                              />
-                                              {/* Download button overlay */}
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
-                                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={(e) => e.stopPropagation()}
-                                              >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                              </a>
-                                            </div>
-                                          ) : fileType === 'video' ? (
-                                            <div className="relative group">
-                                              <video
-                                                controls
-                                                className="max-w-full max-h-96 rounded-lg"
-                                                src={fileUrl}
-                                              />
-                                              {/* Download button */}
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
-                                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                              >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                              </a>
-                                            </div>
-                                          ) : fileType === 'audio' ? (
-                                            <div className="space-y-2">
-                                              <audio
-                                                controls
-                                                className="w-full"
-                                                src={fileUrl}
-                                              />
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
-                                                className="flex items-center justify-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-                                              >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                                Download Audio
-                                              </a>
-                                            </div>
-                                          ) : (
-                                            /* Document or other file types - show download link */
-                                            <a
-                                              href={fileUrl}
-                                              download={fileName}
-                                              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                                            >
-                                              <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">{fileName}</p>
-                                                <p className="text-xs opacity-75">
-                                                  {fileSize ? `${(fileSize / 1024 / 1024).toFixed(2)} MB` : 'Click to download'}
-                                                </p>
-                                              </div>
-                                            </a>
-                                          )}
-                                        </div>
-                                      );
-                                    } else {
-                                      // Fallback for old text-based media messages
-                                      return (
-                                        <div className="flex items-center gap-2 text-gray-300">
-                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                          </svg>
-                                          <p className="text-sm italic">{message.content}</p>
-                                        </div>
-                                      );
-                                    }
-                                  } catch (error) {
-                                    // Fallback for any parsing errors
-                                    return (
-                                      <div className="flex items-center gap-2 text-gray-400">
+                                <div className="space-y-2">
+                                  {/* Check if it's an image */}
+                                  {message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                    <img
+                                      src={message.content}
+                                      alt="Shared image"
+                                      className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(message.content, '_blank')}
+                                    />
+                                  ) : message.content.match(/\.(mp4|webm|ogg)$/i) ? (
+                                    /* Video */
+                                    <video
+                                      controls
+                                      className="max-w-full max-h-96 rounded-lg"
+                                      src={message.content}
+                                    />
+                                  ) : message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                                    /* Audio */
+                                    <audio
+                                      controls
+                                      className="w-full"
+                                      src={message.content}
+                                    />
+                                  ) : (
+                                    /* Other file types - show download link */
+                                    <a
+                                      href={message.content}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                    >
+                                      <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
-                                        <p className="text-sm italic">{message.content}</p>
                                       </div>
-                                    );
-                                  }
-                                })()
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">
+                                          {message.content.split('/').pop()?.split('?')[0] || 'Download File'}
+                                        </p>
+                                        <p className="text-xs opacity-75">Click to download</p>
+                                      </div>
+                                    </a>
+                                  )}
+                                </div>
                               ) : (
                                 /* Regular text message */
                                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -1395,7 +1263,6 @@ export default function DashboardPage() {
                 return 'Unknown Caller';
               })()
             }
-            callType={currentCall.callType || 'audio'}
             onAccept={acceptCall}
             onReject={rejectCall}
             isProcessing={false}
@@ -1403,8 +1270,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* In-Call UI - Audio */}
-      {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && (
+      {/* In-Call UI */}
+      {callState === 'in-call' && currentCall && (
         <InCallUI
           isOpen={true}
           otherUserName={
@@ -1427,39 +1294,6 @@ export default function DashboardPage() {
           callStartedAt={callStartedAt}
           audioTrack={currentCall.audioTrack}
           onToggleMute={toggleMute}
-          onToggleSpeaker={toggleSpeaker}
-          onEndCall={endCall}
-        />
-      )}
-
-      {/* In-Call UI - Video */}
-      {callState === 'in-call' && currentCall && currentCall.callType === 'video' && (
-        <InCallVideoUI
-          isOpen={true}
-          otherUserName={
-            (() => {
-              // Find the other user's name
-              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
-              if (chatWithOtherUser?.participants) {
-                const otherUser = chatWithOtherUser.participants.find(
-                  (p) => p.id !== user?.id
-                );
-                if (otherUser) {
-                  return otherUser.full_name || otherUser.username || 'Unknown';
-                }
-              }
-              return 'Unknown User';
-            })()
-          }
-          isMuted={isMuted}
-          isCameraOff={isCameraOff}
-          isSpeakerMuted={isSpeakerMuted}
-          callStartedAt={callStartedAt}
-          audioTrack={currentCall.audioTrack}
-          videoTrack={currentCall.videoTrack}
-          remoteVideoTracks={remoteVideoTracks}
-          onToggleMute={toggleMute}
-          onToggleCamera={toggleCamera}
           onToggleSpeaker={toggleSpeaker}
           onEndCall={endCall}
         />
