@@ -12,7 +12,7 @@
     "agora-rtc-sdk-ng": "^4.24.1",
     "agora-rtm-sdk": "^1.5.1",
     "dotenv": "^17.2.3",
-    "next": "15.5.4",
+    "next": "^15.5.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "socket.io-client": "^4.8.1"
