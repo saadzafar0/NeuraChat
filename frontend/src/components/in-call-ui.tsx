@@ -16,7 +16,7 @@ export const InCallUI: React.FC<InCallUIProps> = ({
 }) => {
   const [levels, setLevels] = useState<number[]>(() => Array(12).fill(0));
   const [elapsed, setElapsed] = useState('00:00');
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!isOpen || !audioTrack) return;

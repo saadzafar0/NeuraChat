@@ -1,6 +1,6 @@
 'use client';
 
-type CallState = 'idle' | 'calling' | 'ringing' | 'in-call';
+type CallState = 'idle' | 'calling' | 'ringing' | 'in-call' | 'rejected';
 
 type CurrentCall = {
   callId: string;

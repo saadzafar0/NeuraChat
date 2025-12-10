@@ -107,7 +107,16 @@ export const useCall = () => {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
           }
-          const nextCall = currentCall || {
+          const nextCall: CurrentCall = currentCall ? {
+            ...currentCall,
+            callId: payload.callId,
+            chatId: payload.chatId || currentCall.chatId,
+            channelName: payload.channelName,
+            toUserId: payload.toUserId,
+            fromUserId: payload.fromUserId,
+            isCaller: true,
+            callType: payload.callType || 'audio',
+          } : {
             callId: payload.callId,
             chatId: payload.chatId || '',
             channelName: payload.channelName,
@@ -115,7 +124,6 @@ export const useCall = () => {
             fromUserId: payload.fromUserId,
             isCaller: true,
             callType: payload.callType || 'audio',
-            displayName: currentCall?.displayName,
           };
           const startedAt = payload.startedAt || callSessionStore.getState().callStartedAt || Date.now();
           callSessionStore.update({
@@ -137,7 +145,6 @@ export const useCall = () => {
             isCaller: true,
             fromUserId: payload.fromUserId || currentCall?.fromUserId,
             toUserId: payload.toUserId || currentCall?.toUserId,
-            displayName: currentCall?.displayName,
           };
           callSessionStore.update({
             callState: 'rejected',
@@ -149,7 +156,6 @@ export const useCall = () => {
                   channelName: payload.channelName || currentCall.channelName,
                   fromUserId: payload.fromUserId || currentCall.fromUserId,
                   toUserId: payload.toUserId || currentCall.toUserId,
-                  displayName: currentCall.displayName,
                 }
               : fallbackCall,
           });
@@ -313,7 +319,7 @@ export const useCall = () => {
         const callId = created?.call?.id || created?.callId || `call_${Date.now()}`;
         const channelName = `chat_${chatId}`;
         callSessionStore.update({
-          currentCall: { callId, chatId, channelName, toUserId, isCaller: true, callType, displayName },
+          currentCall: { callId, chatId, channelName, toUserId, isCaller: true, callType },
           callState: 'calling',
         });
         
@@ -492,7 +498,6 @@ export const useCall = () => {
           isCaller: true,
           fromUserId: active?.fromUserId,
           toUserId: active?.toUserId,
-          displayName: active?.displayName,
         };
         callSessionStore.update({
           callState: 'rejected',
@@ -504,7 +509,6 @@ export const useCall = () => {
                 channelName: active.channelName,
                 fromUserId: active.fromUserId,
                 toUserId: active.toUserId,
-                displayName: active.displayName,
               }
             : fallbackCall,
         });

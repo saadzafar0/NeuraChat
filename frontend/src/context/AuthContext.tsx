@@ -119,9 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           socket.off('connect', onConnect);
         };
         socket.on('connect', onConnect);
-        return () => socket.off('connect', onConnect);
+        return () => {
+          socket.off('connect', onConnect);
+        };
       }
     }
+    return undefined;
   }, [user, loading]);
 
   return (
