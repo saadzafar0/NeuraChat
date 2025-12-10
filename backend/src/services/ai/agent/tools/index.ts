@@ -854,14 +854,22 @@ export const searchMediaTool = new DynamicStructuredTool({
     try {
       const { data, error } = await supabase
         .from('media_files')
-        .select('file_url, file_type, file_size, uploaded_at')
+        .select('file_name, storage_url, file_type, file_size, mime_type, uploaded_at')
         .ilike('file_type', `%${file_type}%`)
         .order('uploaded_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
       if (!data || data.length === 0) return `No ${file_type} files found.`;
 
-      return JSON.stringify(data, null, 2);
+      const media = data.map((m: any) => ({
+        name: m.file_name,
+        type: m.file_type,
+        mimeType: m.mime_type,
+        size: m.file_size ? `${(m.file_size / 1024).toFixed(1)} KB` : 'Unknown',
+        url: m.storage_url,
+        uploaded: m.uploaded_at
+      }));
+      return JSON.stringify(media, null, 2);
     } catch (err: any) {
       return `Error searching media: ${err.message}`;
     }
