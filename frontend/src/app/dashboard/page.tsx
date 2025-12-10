@@ -100,6 +100,75 @@ export default function DashboardPage() {
   const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteVideoTracks, isCallUiMinimized, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, toggleSpeaker, resetCallSession, handleJoin, minimizeCallUi, restoreCallUi } = useCall();
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
+  // Helper to parse media message content (which is JSON)
+  interface MediaContent {
+    fileName: string;
+    fileType: string;
+    fileUrl: string;
+    thumbnailUrl?: string;
+    fileSize: number;
+    mimeType: string;
+    storagePath?: string;
+    customMessage?: string;
+  }
+
+  const parseMediaContent = (content: string): MediaContent | null => {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed.fileUrl) {
+        return parsed as MediaContent;
+      }
+      return null;
+    } catch {
+      // If it's not JSON, it might be a direct URL (legacy format)
+      return null;
+    }
+  };
+
+  // Helper to get the URL from media content (handles both JSON and legacy URL format)
+  const getMediaUrl = (content: string): string => {
+    const parsed = parseMediaContent(content);
+    return parsed?.fileUrl || content;
+  };
+
+  // Helper to get filename from media content
+  const getMediaFilename = (content: string): string => {
+    const parsed = parseMediaContent(content);
+    if (parsed?.fileName) {
+      return parsed.fileName;
+    }
+    // Fallback to extracting from URL
+    try {
+      const url = getMediaUrl(content);
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const lastSegment = pathname.split('/').pop() || '';
+      // Remove timestamp prefix if present (format: {timestamp}_{filename})
+      const decoded = decodeURIComponent(lastSegment);
+      const match = decoded.match(/^\d+_(.+)$/);
+      return match ? match[1] : decoded || 'file';
+    } catch {
+      return 'file';
+    }
+  };
+
+  // Helper to check file type from media content
+  const getMediaFileType = (content: string): string => {
+    const parsed = parseMediaContent(content);
+    if (parsed?.mimeType) {
+      if (parsed.mimeType.startsWith('image/')) return 'image';
+      if (parsed.mimeType.startsWith('video/')) return 'video';
+      if (parsed.mimeType.startsWith('audio/')) return 'audio';
+      return parsed.fileType || 'file';
+    }
+    // Fallback to checking URL extension
+    const url = getMediaUrl(content);
+    if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return 'image';
+    if (url.match(/\.(mp4|webm|ogg)$/i)) return 'video';
+    if (url.match(/\.(mp3|wav|m4a)$/i)) return 'audio';
+    return 'file';
+  };
+
   const handleUserClick = (userId: string) => {
     if (userId !== user?.id) {
       setSelectedUserId(userId);
@@ -739,17 +808,23 @@ export default function DashboardPage() {
                           }`}>
                             {chat.last_message ? (
                               chat.last_message.type === 'media' ? (
-                                <span className="flex items-center gap-1">
-                                  {chat.last_message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> Photo</>
-                                  ) : chat.last_message.content.match(/\.(mp4|webm|ogg)$/i) ? (
-                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Video</>
-                                  ) : chat.last_message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
-                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg> Audio</>
-                                  ) : (
-                                    <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg> File</>
-                                  )}
-                                </span>
+                                (() => {
+                                  const mediaType = getMediaFileType(chat.last_message.content);
+                                  const fileName = getMediaFilename(chat.last_message.content);
+                                  return (
+                                    <span className="flex items-center gap-1">
+                                      {mediaType === 'image' ? (
+                                        <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> Photo</>
+                                      ) : mediaType === 'video' ? (
+                                        <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Video</>
+                                      ) : mediaType === 'audio' ? (
+                                        <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg> Audio</>
+                                      ) : (
+                                        <><svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg> {fileName}</>
+                                      )}
+                                    </span>
+                                  );
+                                })()
                               ) : (
                                 chat.last_message.content
                               )
@@ -983,46 +1058,47 @@ export default function DashboardPage() {
                               {/* Render based on message type */}
                               {message.type === 'media' ? (
                                 <div className="space-y-2">
-                                  {/* Check if it's an image */}
-                                  {message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                  {/* Check file type using helper */}
+                                  {getMediaFileType(message.content) === 'image' ? (
                                     <img
-                                      src={message.content}
+                                      src={getMediaUrl(message.content)}
                                       alt="Shared image"
                                       className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                      onClick={() => window.open(message.content, '_blank')}
+                                      onClick={() => window.open(getMediaUrl(message.content), '_blank')}
                                     />
-                                  ) : message.content.match(/\.(mp4|webm|ogg)$/i) ? (
+                                  ) : getMediaFileType(message.content) === 'video' ? (
                                     /* Video */
                                     <video
                                       controls
                                       className="max-w-full max-h-96 rounded-lg"
-                                      src={message.content}
+                                      src={getMediaUrl(message.content)}
                                     />
-                                  ) : message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                                  ) : getMediaFileType(message.content) === 'audio' ? (
                                     /* Audio */
                                     <audio
                                       controls
                                       className="w-full"
-                                      src={message.content}
+                                      src={getMediaUrl(message.content)}
                                     />
                                   ) : (
                                     /* Other file types - show download link */
                                     <button
                                       onClick={async () => {
                                         try {
-                                          const response = await fetch(message.content);
+                                          const fileUrl = getMediaUrl(message.content);
+                                          const response = await fetch(fileUrl);
                                           const blob = await response.blob();
                                           const url = window.URL.createObjectURL(blob);
                                           const a = document.createElement('a');
                                           a.href = url;
-                                          a.download = message.content.split('/').pop()?.split('?')[0] || 'download';
+                                          a.download = getMediaFilename(message.content);
                                           document.body.appendChild(a);
                                           a.click();
                                           window.URL.revokeObjectURL(url);
                                           document.body.removeChild(a);
                                         } catch (error) {
                                           console.error('Download failed:', error);
-                                          window.open(message.content, '_blank');
+                                          window.open(getMediaUrl(message.content), '_blank');
                                         }
                                       }}
                                       className="flex items-center gap-2 hover:opacity-80 transition-opacity w-full text-left"
@@ -1034,7 +1110,7 @@ export default function DashboardPage() {
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium truncate">
-                                          {message.content.split('/').pop()?.split('?')[0] || 'Download File'}
+                                          {getMediaFilename(message.content)}
                                         </p>
                                         <p className="text-xs opacity-75">Click to download</p>
                                       </div>
