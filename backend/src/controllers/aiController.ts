@@ -146,7 +146,7 @@ export const chatWithAgent = async (req: Request, res: Response) => {
     const responseText = await agentService.execute(sessionId, query, userId);
 
     // Save the Interaction manually 
-    await supabase.from('AIInteraction').insert({
+    await supabase.from('ai_interactions').insert({
       session_id: sessionId,
       user_query: query,
       ai_response: responseText,
@@ -214,7 +214,7 @@ export const getMainSessionHistory = async (req: Request, res: Response) => {
 
     // 2. Fetch messages
     const { data: interactions } = await supabase
-      .from('AIInteraction')
+      .from('ai_interactions')
       .select('*')
       .eq('session_id', session.id)
       .order('created_at', { ascending: true });
