@@ -307,19 +307,19 @@ class APIClient {
 
   // Notification endpoints
   async getNotifications(page: number = 1) {
-    return this.request(`/notifications?page=${page}`, {
+    return this.request(`/api/notifications?page=${page}`, {
       method: 'GET',
     });
   }
 
   async markNotificationRead(notificationId: string) {
-    return this.request(`/notifications/${notificationId}`, {
+    return this.request(`/api/notifications/${notificationId}`, {
       method: 'PATCH',
     });
   }
 
   async markAllNotificationsRead() {
-    return this.request('/notifications/read-all', {
+    return this.request('/api/notifications/read-all', {
       method: 'PATCH',
     });
   }

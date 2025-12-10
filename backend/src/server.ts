@@ -214,6 +214,16 @@ io.on('connection', (socket: Socket) => {
       // Broadcast to all users in the chat room (including sender)
       io.to(`chat:${chat_id}`).emit('new-message', data);
 
+      // Emit chat:updated event for sidebar updates (Observer pattern)
+      io.to(`chat:${chat_id}`).emit('chat:updated', {
+        chatId: chat_id,
+        lastMessage: {
+          content: data.content,
+          created_at: data.created_at,
+          sender_id: data.sender_id,
+        },
+      });
+
       // Send notification to all participants except the sender
       const { NotificationService } = await import('./services/Notifications/NotificationService');
       const { data: participants } = await supabase

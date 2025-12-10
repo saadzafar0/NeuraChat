@@ -61,7 +61,7 @@ export class NotificationService {
   static async getUserNotifications(userId: string, limit = 20, offset = 0) {
     const { data, error, count } = await supabase
       .from('notifications')
-      .select('*, chats(id, type, name)', { count: 'exact' })
+      .select('*, chats!left(id, type, name)', { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
