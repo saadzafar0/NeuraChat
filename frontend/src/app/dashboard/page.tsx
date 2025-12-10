@@ -468,6 +468,30 @@ export default function DashboardPage() {
     return message.content;
   };
 
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} Bytes`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -877,16 +901,17 @@ export default function DashboardPage() {
                                                 onClick={() => window.open(fileUrl, '_blank')}
                                               />
                                               {/* Download button overlay */}
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  downloadFile(fileUrl, fileName);
+                                                }}
                                                 className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={(e) => e.stopPropagation()}
                                               >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
-                                              </a>
+                                              </button>
                                             </div>
                                           ) : fileType === 'video' ? (
                                             <div className="relative group">
@@ -896,15 +921,14 @@ export default function DashboardPage() {
                                                 src={fileUrl}
                                               />
                                               {/* Download button */}
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
+                                              <button
+                                                onClick={() => downloadFile(fileUrl, fileName)}
                                                 className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                               >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
-                                              </a>
+                                              </button>
                                             </div>
                                           ) : fileType === 'audio' ? (
                                             <div className="space-y-2">
@@ -913,23 +937,21 @@ export default function DashboardPage() {
                                                 className="w-full"
                                                 src={fileUrl}
                                               />
-                                              <a
-                                                href={fileUrl}
-                                                download={fileName}
+                                              <button
+                                                onClick={() => downloadFile(fileUrl, fileName)}
                                                 className="flex items-center justify-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
                                               >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
                                                 Download Audio
-                                              </a>
+                                              </button>
                                             </div>
                                           ) : (
                                             /* Document or other file types - show download link */
-                                            <a
-                                              href={fileUrl}
-                                              download={fileName}
-                                              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                            <button
+                                              onClick={() => downloadFile(fileUrl, fileName)}
+                                              className="flex items-center gap-2 hover:opacity-80 transition-opacity w-full text-left"
                                             >
                                               <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -939,10 +961,10 @@ export default function DashboardPage() {
                                               <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium truncate">{fileName}</p>
                                                 <p className="text-xs opacity-75">
-                                                  {fileSize ? `${(fileSize / 1024 / 1024).toFixed(2)} MB` : 'Click to download'}
+                                                  {fileSize ? formatFileSize(fileSize) : 'Click to download'}
                                                 </p>
                                               </div>
-                                            </a>
+                                            </button>
                                           )}
                                         </div>
                                       );
