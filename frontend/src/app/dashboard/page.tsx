@@ -202,7 +202,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchChats();
-    fetchNotifications();
+    // TODO: Uncomment when notification backend is implemented
+    // fetchNotifications();
   }, []);
 
   useEffect(() => {
@@ -424,6 +425,45 @@ export default function DashboardPage() {
     return getInitials(otherUser?.full_name || otherUser?.username || 'U');
   };
 
+  const getMessagePreview = (message: { content: string; type: string } | undefined) => {
+    if (!message) return 'No messages yet';
+    
+    if (message.type === 'media') {
+      try {
+        // Try to parse JSON content
+        if (message.content.trim().startsWith('{')) {
+          const mediaData = JSON.parse(message.content);
+          const { fileType, fileName, customMessage } = mediaData;
+          
+          // If there's a custom message, show it
+          if (customMessage) {
+            return customMessage;
+          }
+          
+          // Otherwise show file type indicator
+          const icons: { [key: string]: string } = {
+            image: '🖼️',
+            video: '🎥',
+            audio: '🎵',
+            document: '📄',
+            file: '📎'
+          };
+          const icon = icons[fileType] || '📎';
+          return `${icon} ${fileName}`;
+        } else {
+          // Old format - plain text
+          return message.content;
+        }
+      } catch {
+        // Failed to parse - return as is
+        return message.content;
+      }
+    }
+    
+    // Regular text message
+    return message.content;
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -627,7 +667,7 @@ export default function DashboardPage() {
                       <p className={`text-sm truncate ${
                         getUnreadCountForChat(chat.id) > 0 ? 'text-pink-300 font-medium' : 'text-gray-400'
                       }`}>
-                        {chat.last_message?.content || 'No messages yet'}
+                        {getMessagePreview(chat.last_message)}
                       </p>
                     </div>
                   </div>
@@ -790,51 +830,123 @@ export default function DashboardPage() {
                             >
                               {/* Render based on message type */}
                               {message.type === 'media' ? (
-                                <div className="space-y-2">
-                                  {/* Check if it's an image */}
-                                  {message.content.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                    <img
-                                      src={message.content}
-                                      alt="Shared image"
-                                      className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                      onClick={() => window.open(message.content, '_blank')}
-                                    />
-                                  ) : message.content.match(/\.(mp4|webm|ogg)$/i) ? (
-                                    /* Video */
-                                    <video
-                                      controls
-                                      className="max-w-full max-h-96 rounded-lg"
-                                      src={message.content}
-                                    />
-                                  ) : message.content.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
-                                    /* Audio */
-                                    <audio
-                                      controls
-                                      className="w-full"
-                                      src={message.content}
-                                    />
-                                  ) : (
-                                    /* Other file types - show download link */
-                                    <a
-                                      href={message.content}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                                    >
-                                      <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
+                                (() => {
+                                  try {
+                                    // Check if content is JSON (starts with '{')
+                                    if (message.content.trim().startsWith('{')) {
+                                      // Parse JSON content for new media messages
+                                      const mediaData = JSON.parse(message.content);
+                                      const { fileName, fileType, fileUrl, thumbnailUrl, fileSize, mimeType, customMessage } = mediaData;
+
+                                      return (
+                                        <div className="space-y-2">
+                                          {/* Show custom message if provided */}
+                                          {customMessage && (
+                                            <p className="text-sm mb-2">{customMessage}</p>
+                                          )}
+
+                                          {/* Render based on file type */}
+                                          {fileType === 'image' ? (
+                                            <div className="relative group">
+                                              <img
+                                                src={thumbnailUrl || fileUrl}
+                                                alt={fileName}
+                                                className="max-w-full max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                onClick={() => window.open(fileUrl, '_blank')}
+                                              />
+                                              {/* Download button overlay */}
+                                              <a
+                                                href={fileUrl}
+                                                download={fileName}
+                                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                              </a>
+                                            </div>
+                                          ) : fileType === 'video' ? (
+                                            <div className="relative group">
+                                              <video
+                                                controls
+                                                className="max-w-full max-h-96 rounded-lg"
+                                                src={fileUrl}
+                                              />
+                                              {/* Download button */}
+                                              <a
+                                                href={fileUrl}
+                                                download={fileName}
+                                                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                              </a>
+                                            </div>
+                                          ) : fileType === 'audio' ? (
+                                            <div className="space-y-2">
+                                              <audio
+                                                controls
+                                                className="w-full"
+                                                src={fileUrl}
+                                              />
+                                              <a
+                                                href={fileUrl}
+                                                download={fileName}
+                                                className="flex items-center justify-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                                              >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                                Download Audio
+                                              </a>
+                                            </div>
+                                          ) : (
+                                            /* Document or other file types - show download link */
+                                            <a
+                                              href={fileUrl}
+                                              download={fileName}
+                                              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                            >
+                                              <div className="w-10 h-10 bg-gray-600/50 rounded-lg flex items-center justify-center">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">{fileName}</p>
+                                                <p className="text-xs opacity-75">
+                                                  {fileSize ? `${(fileSize / 1024 / 1024).toFixed(2)} MB` : 'Click to download'}
+                                                </p>
+                                              </div>
+                                            </a>
+                                          )}
+                                        </div>
+                                      );
+                                    } else {
+                                      // Fallback for old text-based media messages
+                                      return (
+                                        <div className="flex items-center gap-2 text-gray-300">
+                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                          </svg>
+                                          <p className="text-sm italic">{message.content}</p>
+                                        </div>
+                                      );
+                                    }
+                                  } catch (error) {
+                                    // Fallback for any parsing errors
+                                    return (
+                                      <div className="flex items-center gap-2 text-gray-400">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                         </svg>
+                                        <p className="text-sm italic">{message.content}</p>
                                       </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">
-                                          {message.content.split('/').pop()?.split('?')[0] || 'Download File'}
-                                        </p>
-                                        <p className="text-xs opacity-75">Click to download</p>
-                                      </div>
-                                    </a>
-                                  )}
-                                </div>
+                                    );
+                                  }
+                                })()
                               ) : (
                                 /* Regular text message */
                                 <p className="whitespace-pre-wrap break-words">{message.content}</p>

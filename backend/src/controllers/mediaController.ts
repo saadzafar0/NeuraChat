@@ -57,9 +57,24 @@ export const uploadFile = async (req: AuthRequest, res: Response): Promise<void>
       thumbnailUrl = await storageService.generateThumbnail(uploadResult.path);
     }
 
-    // Create message record (if messageContent is provided or default)
+    // Create message record with file metadata as JSON in content
     let messageId = null;
-    const content = messageContent || `Shared a ${fileType}: ${file.originalname}`;
+    
+    // Store file metadata as JSON in message content
+    const messageContentData = {
+      fileName: file.originalname,
+      fileType,
+      fileUrl: uploadResult.url,
+      thumbnailUrl: thumbnailUrl || null,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+      storagePath: uploadResult.path,
+    };
+
+    // If user provided custom message, include it
+    const content = messageContent 
+      ? JSON.stringify({ ...messageContentData, customMessage: messageContent })
+      : JSON.stringify(messageContentData);
     
     const { data: message, error: messageError } = await supabase
       .from('messages')
