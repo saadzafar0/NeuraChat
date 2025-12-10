@@ -47,6 +47,7 @@ export default function CallsPage() {
   const [calls, setCalls] = useState<CallLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchCallLogs = async () => {
@@ -167,18 +168,36 @@ export default function CallsPage() {
           <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
         </div>
 
-        <Sidebar />
+        <Sidebar isMobileOpen={isSidebarOpen} onMobileClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex-1 overflow-y-auto relative z-10">
-          <div className="max-w-6xl mx-auto p-8">
+        {/* Mobile Header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-gray-800/30 border-b border-gray-700/50 p-4 flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="text-gray-400 hover:text-white transition-colors p-2"
+            aria-label="Open menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              Calls
+            </span>
+          </h1>
+        </div>
+
+        <div className="flex-1 overflow-y-auto relative z-10 mt-16 lg:mt-0">
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             {/* Header with Gradient */}
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold mb-2">
+            <div className="mb-6 lg:mb-8 hidden lg:block">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
                 <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
                   Calls
                 </span>
               </h1>
-              <p className="text-gray-400">View your call history</p>
+              <p className="text-gray-400 text-sm lg:text-base">View your call history</p>
             </div>
 
             {/* Glass Card Container */}
@@ -228,23 +247,23 @@ export default function CallsPage() {
                   return (
                     <div
                       key={call.id}
-                      className="group p-5 hover:bg-gray-700/30 transition-all duration-300 flex items-center justify-between relative"
+                      className="group p-3 sm:p-4 lg:p-5 hover:bg-gray-700/30 transition-all duration-300 flex items-center justify-between relative"
                     >
                       {/* Hover Glow Effect */}
                       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                       
-                      <div className="flex items-center gap-4 relative z-10">
+                      <div className="flex items-center gap-3 sm:gap-4 relative z-10 min-w-0 flex-1">
                         {/* Avatar with Gradient */}
-                        <div className="relative">
+                        <div className="relative flex-shrink-0">
                           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
                           {avatarUrl ? (
                             <img 
                               src={avatarUrl} 
                               alt={displayName}
-                              className="relative w-12 h-12 rounded-full object-cover shadow-lg"
+                              className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-lg"
                             />
                           ) : (
-                            <div className="relative w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg">
+                            <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm sm:text-base shadow-lg">
                               {getInitials(displayName)}
                             </div>
                           )}
@@ -258,11 +277,11 @@ export default function CallsPage() {
                           )}
                         </div>
 
-                        <div>
-                          <h3 className="font-semibold text-gray-100 mb-1 group-hover:text-cyan-400 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-100 mb-1 group-hover:text-cyan-400 transition-colors truncate text-sm sm:text-base">
                             {displayName}
                           </h3>
-                          <div className="flex items-center gap-2 text-sm">
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm flex-wrap">
                             {getCallIcon(call)}
                             <span className={missed ? 'text-red-400' : 'text-gray-400'}>
                               {typeLabel}
@@ -279,12 +298,15 @@ export default function CallsPage() {
                         </div>
                       </div>
 
-                      <div className="text-right relative z-10">
-                        <p className="text-sm text-gray-400 mb-2">{time}</p>
+                      <div className="text-right relative z-10 flex-shrink-0 ml-2">
+                        <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">{time}</p>
                         <button className="relative group/btn">
                           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-0 group-hover/btn:opacity-75 transition-opacity"></div>
-                          <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500 hover:to-blue-600 text-cyan-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 border border-cyan-500/30 hover:border-transparent text-sm">
-                            {call.type === 'video' ? 'Video call' : 'Call back'}
+                          <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500 hover:to-blue-600 text-cyan-400 hover:text-white font-medium py-1.5 px-2.5 sm:py-2 sm:px-4 rounded-lg transition-all duration-300 border border-cyan-500/30 hover:border-transparent text-xs sm:text-sm">
+                            <span className="hidden sm:inline">{call.type === 'video' ? 'Video call' : 'Call back'}</span>
+                            <svg className="sm:hidden w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
                           </div>
                         </button>
                       </div>

@@ -85,7 +85,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 mt-16 lg:mt-0">
-          <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8 xl:max-w-3xl">
             {/* Header with Gradient */}
             <div className="mb-4 lg:mb-6">
               <h1 className="text-xl lg:text-3xl font-bold mb-2 hidden lg:block">

@@ -531,15 +531,31 @@ export default function DashboardPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold">
+          <h1 className="text-xl font-bold flex-1">
             <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
               NeuraChat
             </span>
           </h1>
+          
+          {/* Notification Button - Mobile */}
+          <button
+            onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+            className="relative text-gray-400 hover:text-white transition-colors p-2"
+          >
+            <svg className={`w-6 h-6 ${getTotalUnreadCount() > 0 ? 'text-pink-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {getTotalUnreadCount() > 0 && (
+              <div className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                {getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount()}
+              </div>
+            )}
+          </button>
+          
           {selectedChat && (
             <button
               onClick={() => setSelectedChat(null)}
-              className="ml-auto text-gray-400 hover:text-white transition-colors p-2"
+              className="text-gray-400 hover:text-white transition-colors p-2"
               aria-label="Back to chats"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -549,43 +565,10 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* NOTIFICATION BUBBLE - TOP LEFT (Mobile & Desktop) */}
-        <div className="fixed top-6 left-6 z-50 lg:left-80">
-          <button
-            onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
-            className="relative group"
-          >
-            {/* Glow Effect */}
-            <div className={`absolute inset-0 rounded-full blur-lg transition-opacity ${
-              getTotalUnreadCount() > 0 
-                ? 'bg-gradient-to-br from-pink-500 to-purple-600 opacity-60 group-hover:opacity-80' 
-                : 'bg-gray-600 opacity-30'
-            }`}></div>
-            
-            {/* Button */}
-            <div className={`relative w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center transition-all shadow-2xl ${
-              getTotalUnreadCount() > 0
-                ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white'
-                : 'bg-gray-700 text-gray-400'
-            }`}>
-              <svg className={`w-6 h-6 lg:w-7 lg:h-7 ${getTotalUnreadCount() > 0 ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              
-              {/* Badge */}
-              {getTotalUnreadCount() > 0 && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg animate-bounce">
-                  {getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount()}
-                </div>
-              )}
-            </div>
-          </button>
-        </div>
-
         {/* Chat List */}
         <div className={`
           ${selectedChat ? 'hidden lg:flex' : 'flex'}
-          w-full lg:w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex-col relative z-10
+          w-full lg:w-72 xl:w-80 backdrop-blur-xl bg-gray-800/30 border-r border-gray-700/50 flex-col relative z-10 flex-shrink-0
           ${selectedChat ? '' : 'mt-16 lg:mt-0'}
         `}>
           {/* Header with Gradient */}
@@ -593,11 +576,36 @@ export default function DashboardPage() {
             {/* Glow Effect */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
             
-            <h1 className="text-xl lg:text-2xl font-bold mb-4 hidden lg:block">
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                Chats
-              </span>
-            </h1>
+            <div className="flex items-center justify-between mb-4 hidden lg:flex">
+              <h1 className="text-xl lg:text-2xl font-bold">
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                  Chats
+                </span>
+              </h1>
+              
+              {/* Notification Button - Desktop */}
+              <button
+                onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+                className="relative group"
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  getTotalUnreadCount() > 0
+                    ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
+                }`}>
+                  <svg className={`w-5 h-5 ${getTotalUnreadCount() > 0 ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  
+                  {/* Badge */}
+                  {getTotalUnreadCount() > 0 && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                      {getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount()}
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
 
             {/* Search with Glow */}
             <div className="relative mb-4 group">
@@ -743,9 +751,9 @@ export default function DashboardPage() {
 
         {/* Chat Area */}
         {selectedChat ? (
-          <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0">
+          <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0 min-w-0">
             {/* Chat Header with Gradient Border */}
-            <div className="p-3 lg:p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+            <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
               
               <div className="flex items-center gap-3">
@@ -860,7 +868,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5 space-y-4">
               {messages.map((message) => {
                 const isOwnMessage = message.sender_id === user?.id;
                 const sender = message.users || selectedChat.participants.find((p) => p.id === message.sender_id);
@@ -1038,10 +1046,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Message Input with Glow */}
-            <div className="p-3 lg:p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+            <div className="px-4 py-3 lg:px-6 lg:py-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
               <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 lg:gap-3">
                 <div className="flex-1 relative group">
                   <input
                     type="text"

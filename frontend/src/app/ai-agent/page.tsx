@@ -151,9 +151,9 @@ export default function AIAgentPage() {
         </div>
 
         {/* AI Agent Chat Area */}
-        <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0">
+        <div className="flex-1 flex flex-col relative z-10 mt-16 lg:mt-0 min-w-0">
           {/* Header */}
-          <div className="p-3 lg:p-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+          <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
             
             <div className="flex items-center gap-3">
@@ -177,7 +177,7 @@ export default function AIAgentPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5 space-y-4">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -285,10 +285,10 @@ export default function AIAgentPage() {
           </div>
 
           {/* Message Input */}
-          <div className="p-3 lg:p-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
+          <div className="px-4 py-3 lg:px-6 lg:py-4 border-t border-gray-700/50 backdrop-blur-xl bg-gray-800/30 relative">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 lg:gap-3">
               <div className="flex-1 relative group">
                 <input
                   type="text"
