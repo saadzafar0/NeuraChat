@@ -219,7 +219,7 @@ io.on('connection', (socket: Socket) => {
   });
 
   // Call signaling events
-  socket.on('call-initiate', async ({ chatId, toUserId, callId }: { chatId: string; toUserId: string; callId: string }) => {
+  socket.on('call-initiate', async ({ chatId, toUserId, callId, callType = 'audio' }: { chatId: string; toUserId: string; callId: string; callType?: 'audio' | 'video' }) => {
     try {
       const channelName = `chat_${chatId}`;
       
@@ -233,7 +233,7 @@ io.on('connection', (socket: Socket) => {
           id: callId,
           chat_id: chatId,
           initiator_id: userId,
-          type: 'audio', // Default to audio for now
+          type: callType,
           status: 'active',
         })
         .select('*')
@@ -306,6 +306,7 @@ io.on('connection', (socket: Socket) => {
         chatId,
         channelName,
         callId,
+        callType,
       });
 
       // Also emit to caller to show calling state
