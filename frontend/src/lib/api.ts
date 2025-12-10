@@ -96,6 +96,20 @@ class APIClient {
     });
   }
 
+  async forgotPassword(email: string) {
+    return this.request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+    });
+  }
+
+  async resetPassword(accessToken: string, newPassword: string) {
+    return this.request('/api/auth/reset-password', {
+      method: 'POST',
+      body: { accessToken, newPassword },
+    });
+  }
+
   async getCurrentUser() {
     return this.request('/api/auth/me', {
       method: 'GET',
