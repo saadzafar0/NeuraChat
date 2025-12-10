@@ -435,6 +435,125 @@ export const getCallHistory = async (req: AuthRequest, res: Response): Promise<v
 };
 
 /**
+ * Get call logs for the authenticated user
+ * GET /api/calls/logs
+ * Returns all calls the user was involved in (as initiator or receiver)
+ */
+export const getUserCallLogs = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { limit = 50, offset = 0 } = req.query;
+
+    const supabase = getSupabaseClient();
+
+    // Get all calls where user was a participant
+    const { data: callParticipations, error: participationsError } = await supabase
+      .from('call_participants')
+      .select('call_id')
+      .eq('user_id', userId);
+
+    if (participationsError) {
+      console.error('Error fetching call participations:', participationsError);
+      res.status(500).json({ error: 'Failed to fetch call logs' });
+      return;
+    }
+
+    const callIds = callParticipations?.map(p => p.call_id) || [];
+
+    if (callIds.length === 0) {
+      res.json({ calls: [], total: 0 });
+      return;
+    }
+
+    // Get call details with logs
+    const { data: calls, error: callsError } = await supabase
+      .from('calls')
+      .select(`
+        id,
+        chat_id,
+        initiator_id,
+        type,
+        status,
+        start_time,
+        end_time,
+        chats (
+          id,
+          type,
+          name
+        ),
+        call_logs (
+          id,
+          quality_rating,
+          duration_seconds,
+          created_at
+        ),
+        call_participants (
+          user_id,
+          status,
+          joined_at,
+          users (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        )
+      `)
+      .in('id', callIds)
+      .order('start_time', { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    if (callsError) {
+      console.error('Error fetching calls:', callsError);
+      res.status(500).json({ error: 'Failed to fetch call logs' });
+      return;
+    }
+
+    // Transform data to include role (initiator/receiver)
+    const callLogs = calls?.map(call => {
+      const isInitiator = call.initiator_id === userId;
+      
+      // Get other participants (excluding current user)
+      const otherParticipants = call.call_participants
+        ?.filter((p: any) => p.user_id !== userId)
+        .map((p: any) => ({
+          userId: p.user_id,
+          status: p.status,
+          joinedAt: p.joined_at,
+          user: p.users
+        })) || [];
+
+      return {
+        id: call.id,
+        chatId: call.chat_id,
+        initiatorId: call.initiator_id,
+        type: call.type,
+        status: call.status,
+        startTime: call.start_time,
+        endTime: call.end_time,
+        role: isInitiator ? 'initiator' : 'receiver',
+        chat: call.chats,
+        participants: otherParticipants,
+        log: call.call_logs?.[0] || null
+      };
+    }) || [];
+
+    res.json({
+      calls: callLogs,
+      total: callIds.length
+    });
+  } catch (error) {
+    console.error('Get user call logs error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+/**
  * Create a call log entry
  * POST /api/calls/:callId/log
  */

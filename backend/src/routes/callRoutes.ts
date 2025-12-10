@@ -7,6 +7,7 @@ import {
   getCallParticipants,
   getCallHistory,
   createCallLog,
+  getUserCallLogs,
 } from '../controllers/callController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -16,6 +17,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.post('/', initiateCall);
+router.get('/logs', getUserCallLogs); // Must be before /:callId routes to avoid conflict
 router.post('/:callId/join', joinCall);
 router.post('/:callId/leave', leaveCall);
 router.post('/:callId/end', endCall);

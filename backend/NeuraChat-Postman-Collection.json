@@ -382,7 +382,8 @@
     },
 
     {
-      "name": "Calls (Not Implemented)",
+      "name": "Calls",
+      "description": "Voice and video call features with WebRTC integration.\n\n📞 Features:\n- Initiate audio/video calls\n- Call history and logs\n- Role detection (initiator/receiver)\n- Call participant tracking\n- Call duration and status\n\n🔐 Authentication:\nAll routes require valid login cookie.",
       "item": [
         {
           "name": "Initiate Call",
@@ -402,7 +403,33 @@
               "raw": "{{baseUrl}}/api/calls",
               "host": ["{{baseUrl}}"],
               "path": ["api", "calls"]
-            }
+            },
+            "description": "Initiate a new audio or video call.\n\n**Body Parameters:**\n- `chatId` (string): The chat ID where the call should be initiated\n- `type` (string): Either 'audio' or 'video'\n\n✅ Creates call record\n✅ Notifies all chat participants\n✅ Returns call details with Agora token"
+          }
+        },
+        {
+          "name": "Get User Call Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/calls/logs?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "calls", "logs"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Number of call logs to retrieve (optional, default: 50)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset (optional, default: 0)"
+                }
+              ]
+            },
+            "description": "Retrieve call history for the authenticated user.\n\n✅ Shows all calls where user was a participant\n✅ Indicates role: 'initiator' or 'receiver'\n✅ Includes chat details, participants, and call logs\n✅ Ordered by start time descending (newest first)\n✅ Pagination support\n\nResponse:\n```json\n{\n  \"calls\": [\n    {\n      \"id\": \"call-123\",\n      \"chatId\": \"chat-456\",\n      \"initiatorId\": \"user-789\",\n      \"type\": \"video\",\n      \"status\": \"completed\",\n      \"startTime\": \"2025-12-10T10:30:00Z\",\n      \"endTime\": \"2025-12-10T10:45:00Z\",\n      \"role\": \"receiver\",\n      \"chat\": { \"name\": \"John Doe\", \"type\": \"private\" },\n      \"participants\": [...],\n      \"log\": { \"duration\": 900, \"endedBy\": \"user-789\" }\n    }\n  ],\n  \"total\": 150\n}\n```"
           }
         }
       ]

@@ -323,6 +323,13 @@ class APIClient {
       method: 'PATCH',
     });
   }
+
+  // Call log endpoints
+  async getCallLogs(limit: number = 50, offset: number = 0) {
+    return this.request(`/api/calls/logs?limit=${limit}&offset=${offset}`, {
+      method: 'GET',
+    });
+  }
 }
 
 // Export singleton instance
