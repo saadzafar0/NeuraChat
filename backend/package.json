@@ -18,6 +18,15 @@
     "@langchain/google-genai": "^2.0.3",
     "@langchain/langgraph": "^1.0.4",
     "@supabase/supabase-js": "^2.39.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/mime-types": "^3.0.1",
+    "@types/multer": "^1.4.13",
+    "@types/node": "^20.10.6",
+    "@types/uuid": "^9.0.7",
     "agora-access-token": "^2.0.4",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
@@ -32,21 +41,12 @@
     "multer": "^1.4.5-lts.1",
     "openai": "^6.9.1",
     "socket.io": "^4.6.1",
+    "typescript": "^5.3.3",
     "uuid": "^9.0.1",
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.5",
-    "@types/mime-types": "^3.0.1",
-    "@types/multer": "^1.4.13",
-    "@types/node": "^20.10.6",
-    "@types/uuid": "^9.0.7",
     "nodemon": "^3.0.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "ts-node": "^10.9.2"
   }
 }
