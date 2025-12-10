@@ -15,6 +15,7 @@ import { useCall } from '@/hooks/useCall';
 import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 import { useRouter } from 'next/navigation';
 import FileUploadModal from '@/components/FileUploadModal';
+import UserProfileModal from '@/components/UserProfileModal';
 
 interface Message {
   id: string;
@@ -89,9 +90,18 @@ export default function DashboardPage() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
 
   // Call functionality
   const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleSpeaker, resetCallSession } = useCall();
+
+  const handleUserClick = (userId: string) => {
+    if (userId !== user?.id) {
+      setSelectedUserId(userId);
+      setIsUserProfileModalOpen(true);
+    }
+  };
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
     setMessageInput(enhancedMessage);
@@ -642,11 +652,29 @@ export default function DashboardPage() {
                     <div className="flex items-start gap-3">
                       {/* Avatar */}
                       <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // For private chats, show the other user's profile
+                            if (chat.type === 'private') {
+                              const otherUser = chat.participants.find((p) => p.id !== user?.id);
+                              if (otherUser) {
+                                handleUserClick(otherUser.id);
+                              }
+                            }
+                          }}
+                          className={`w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30 ${
+                            chat.type === 'private' 
+                              ? 'hover:scale-110 transition-transform cursor-pointer' 
+                              : 'cursor-default'
+                          }`}
+                          disabled={chat.type !== 'private'}
+                          title={chat.type === 'private' ? 'View profile' : undefined}
+                        >
                           {getChatAvatar(chat)}
-                        </div>
+                        </button>
                         {selectedChat?.id === chat.id && (
-                          <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse"></div>
+                          <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse pointer-events-none"></div>
                         )}
                         {/* Online indicator */}
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900"></div>
@@ -706,12 +734,29 @@ export default function DashboardPage() {
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
               
               <div className="flex items-center gap-3">
-                <div className="relative">
+                <button
+                  onClick={() => {
+                    // For private chats, show the other user's profile
+                    if (selectedChat.type === 'private') {
+                      const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
+                      if (otherUser) {
+                        handleUserClick(otherUser.id);
+                      }
+                    }
+                  }}
+                  className={`relative ${
+                    selectedChat.type === 'private' 
+                      ? 'cursor-pointer hover:scale-110 transition-transform' 
+                      : 'cursor-default'
+                  }`}
+                  disabled={selectedChat.type !== 'private'}
+                  title={selectedChat.type === 'private' ? 'View profile' : undefined}
+                >
                   <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-cyan-500/30">
                     {getChatAvatar(selectedChat)}
                   </div>
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 shadow-lg shadow-emerald-500/50"></div>
-                </div>
+                </button>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
@@ -782,15 +827,23 @@ export default function DashboardPage() {
                   >
                     <div className={`flex gap-2 max-w-[85%] sm:max-w-[70%] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                       {!isOwnMessage && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
+                        <button
+                          onClick={() => sender?.id && handleUserClick(sender.id)}
+                          className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30 hover:scale-110 transition-transform cursor-pointer"
+                          title={`View ${sender?.full_name || sender?.username}'s profile`}
+                        >
                           {getInitials(sender?.full_name || sender?.username || 'U')}
-                        </div>
+                        </button>
                       )}
                       <div className="relative group">
                         {!isOwnMessage && (
-                          <div className="text-xs text-cyan-400 mb-1 px-3 font-medium">
+                          <button
+                            onClick={() => sender?.id && handleUserClick(sender.id)}
+                            className="text-xs text-cyan-400 mb-1 px-3 font-medium hover:text-cyan-300 hover:underline cursor-pointer transition-colors"
+                            title={`View ${sender?.full_name || sender?.username}'s profile`}
+                          >
                             {sender?.full_name || sender?.username}
-                          </div>
+                          </button>
                         )}
                         
                         {isEditing ? (
@@ -1074,6 +1127,18 @@ export default function DashboardPage() {
         originalMessage={messageInput}
         onApply={handleApplyAIEnhancement}
       />
+
+      {/* User Profile Modal */}
+      {selectedUserId && (
+        <UserProfileModal
+          userId={selectedUserId}
+          isOpen={isUserProfileModalOpen}
+          onClose={() => {
+            setIsUserProfileModalOpen(false);
+            setSelectedUserId(null);
+          }}
+        />
+      )}
 
       {/* NOTIFICATION PANEL */}
       {isNotificationPanelOpen && (
