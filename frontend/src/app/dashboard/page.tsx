@@ -57,6 +57,12 @@ interface Notification {
   content: string;
   is_read: boolean;
   created_at: string;
+  chat_id?: string;
+  chats?: {
+    id: string;
+    type: string;
+    name?: string;
+  };
 }
 
 export default function DashboardPage() {
@@ -104,14 +110,7 @@ export default function DashboardPage() {
   };
 
   const getUnreadCountForChat = (chatId: string) => {
-    return notifications.filter((n) => {
-      try {
-        const content = JSON.parse(n.content);
-        return content.chat_id === chatId;
-      } catch {
-        return false;
-      }
-    }).length;
+    return notifications.filter((n) => n.chat_id === chatId).length;
   };
 
   const getTotalUnreadCount = () => {
@@ -119,14 +118,7 @@ export default function DashboardPage() {
   };
 
   const markChatNotificationsAsRead = async (chatId: string) => {
-    const chatNotifications = notifications.filter((n) => {
-      try {
-        const content = JSON.parse(n.content);
-        return content.chat_id === chatId;
-      } catch {
-        return false;
-      }
-    });
+    const chatNotifications = notifications.filter((n) => n.chat_id === chatId);
 
     for (const notification of chatNotifications) {
       try {
@@ -136,14 +128,7 @@ export default function DashboardPage() {
       }
     }
 
-    setNotifications((prev) => prev.filter((n) => {
-      try {
-        const content = JSON.parse(n.content);
-        return content.chat_id !== chatId;
-      } catch {
-        return true;
-      }
-    }));
+    setNotifications((prev) => prev.filter((n) => n.chat_id !== chatId));
   };
 
   const handleMarkNotificationRead = async (notificationId: string) => {
@@ -1073,28 +1058,66 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   notifications.map((notification) => {
-                    let chatId = '';
-                    let chatName = 'Unknown';
-                    try {
-                      const content = JSON.parse(notification.content);
-                      chatId = content.chat_id;
-                      const chat = chats.find((c) => c.id === chatId);
-                      chatName = chat ? getChatName(chat) : 'Unknown Chat';
-                    } catch {}
+                    const chatId = notification.chat_id || '';
+                    const chat = chats.find((c) => c.id === chatId);
+                    const chatName = chat ? getChatName(chat) : 'Unknown Chat';
 
                     return (
                       <div
                         key={notification.id}
-                        className="backdrop-blur-sm bg-gray-700/40 hover:bg-gray-700/60 border border-gray-600/30 rounded-lg p-3 transition-all group"
+                        className="backdrop-blur-sm bg-gray-700/40 hover:bg-gray-700/60 border border-gray-600/30 rounded-lg p-3 transition-all group cursor-pointer"
+                        onClick={() => {
+                          if (chatId) {
+                            const chat = chats.find((c) => c.id === chatId);
+                            if (chat) {
+                              setSelectedChat(chat);
+                              setIsNotificationPanelOpen(false);
+                              handleMarkNotificationRead(notification.id);
+                            }
+                          }
+                        }}
                       >
                         <div className="flex items-start gap-3">
+                          {/* Icon based on notification type */}
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                            notification.type === 'message' 
+                              ? 'bg-cyan-500/20 text-cyan-400' 
+                              : notification.type === 'call'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-purple-500/20 text-purple-400'
+                          }`}>
+                            {notification.type === 'message' ? (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                              </svg>
+                            ) : notification.type === 'call' ? (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            )}
+                          </div>
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="font-medium text-pink-400 text-sm truncate">
-                                {notification.title}
-                              </p>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-pink-400 text-sm truncate">
+                                  {notification.title}
+                                </p>
+                                {chatName && (
+                                  <p className="text-xs text-gray-400 truncate">
+                                    {chatName}
+                                  </p>
+                                )}
+                              </div>
                               <button
-                                onClick={() => handleMarkNotificationRead(notification.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkNotificationRead(notification.id);
+                                }}
                                 className="flex-shrink-0 text-gray-400 hover:text-cyan-400 transition-colors p-1 hover:bg-gray-600/50 rounded"
                                 title="Mark as read"
                               >
@@ -1103,26 +1126,16 @@ export default function DashboardPage() {
                                 </svg>
                               </button>
                             </div>
-                            <p className="text-sm text-gray-300 mb-2">
-                              New message in <span className="text-cyan-400 font-medium">{chatName}</span>
+                            
+                            {/* Message preview */}
+                            <p className="text-sm text-gray-300 mb-1 line-clamp-2">
+                              {notification.content}
                             </p>
-                            {chatId && (
-                              <button
-                                onClick={() => {
-                                  const chat = chats.find((c) => c.id === chatId);
-                                  if (chat) {
-                                    setSelectedChat(chat);
-                                    setIsNotificationPanelOpen(false);
-                                  }
-                                }}
-                                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
-                              >
-                                Open Chat
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </button>
-                            )}
+
+                            {/* Timestamp */}
+                            <p className="text-xs text-gray-500">
+                              {formatTime(notification.created_at)}
+                            </p>
                           </div>
                         </div>
                       </div>
