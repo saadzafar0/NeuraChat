@@ -110,7 +110,7 @@ export default function DashboardPage() {
   };
 
   const getUnreadCountForChat = (chatId: string) => {
-    return notifications.filter((n) => n.chat_id === chatId).length;
+    return notifications.filter((n) => n.chat_id === chatId && n.chat_id !== null).length;
   };
 
   const getTotalUnreadCount = () => {
@@ -118,7 +118,9 @@ export default function DashboardPage() {
   };
 
   const markChatNotificationsAsRead = async (chatId: string) => {
-    const chatNotifications = notifications.filter((n) => n.chat_id === chatId);
+    const chatNotifications = notifications.filter((n) => n.chat_id === chatId && n.chat_id !== null);
+
+    if (chatNotifications.length === 0) return; // No notifications to mark
 
     for (const notification of chatNotifications) {
       try {
@@ -203,20 +205,46 @@ export default function DashboardPage() {
       };
       socketInstance.on('incoming-call', dashboardIncomingCallHandler);
 
-      // Listen for real-time notifications
-      socketInstance.on('notification:new', (notification: Notification) => {
+      // Listen for real-time notifications (Observer pattern)
+      const notificationHandler = (notification: Notification) => {
+        console.log('🔔 New notification received:', notification);
         if (!notification.is_read) {
-          setNotifications((prev) => [notification, ...prev]);
+          setNotifications((prev) => {
+            // Avoid duplicates
+            if (prev.some((n) => n.id === notification.id)) return prev;
+            return [notification, ...prev];
+          });
         }
-      });
+      };
+      socketInstance.on('notification:new', notificationHandler);
+
+      // Listen for chat updates (Observer pattern for sidebar)
+      const chatUpdatedHandler = (data: { chatId: string; lastMessage: any }) => {
+        console.log('💬 Chat updated:', data);
+        setChats((prev) => {
+          const updated = prev.map((chat) =>
+            chat.id === data.chatId
+              ? { ...chat, last_message: data.lastMessage }
+              : chat
+          );
+          // Re-sort: chats with more recent messages first
+          return updated.sort((a, b) => {
+            const aTime = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0;
+            const bTime = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
+      };
+      socketInstance.on('chat:updated', chatUpdatedHandler);
 
       socketClient.onNewMessage((message: Message) => {
         if (selectedChat && message.chat_id === selectedChat.id) {
           setMessages((prev) => [...prev, message]);
           scrollToBottom();
         }
-        setChats((prev) =>
-          prev.map((chat) =>
+        // Also update chat list with last message
+        setChats((prev) => {
+          const updated = prev.map((chat) =>
             chat.id === message.chat_id
               ? {
                   ...chat,
@@ -227,8 +255,14 @@ export default function DashboardPage() {
                   },
                 }
               : chat
-          )
-        );
+          );
+          // Re-sort: chats with more recent messages first
+          return updated.sort((a, b) => {
+            const aTime = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0;
+            const bTime = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
       });
 
       socketClient.onMessageUpdated((message: Message) => {
@@ -243,7 +277,8 @@ export default function DashboardPage() {
 
       return () => {
         socketInstance.off('incoming-call', dashboardIncomingCallHandler);
-        socketInstance.off('notification:new');
+        socketInstance.off('notification:new', notificationHandler);
+        socketInstance.off('chat:updated', chatUpdatedHandler);
         socketClient.offNewMessage();
         socketClient.offMessageUpdated();
         socketClient.offMessageDeleted();
@@ -432,10 +467,25 @@ export default function DashboardPage() {
     });
   };
 
-  const filteredChats = chats.filter((chat) => {
-    const chatName = getChatName(chat).toLowerCase();
-    return chatName.includes(searchQuery.toLowerCase());
-  });
+  // Sort chats: unread first, then by last message time (WhatsApp-like)
+  const filteredChats = chats
+    .filter((chat) => {
+      const chatName = getChatName(chat).toLowerCase();
+      return chatName.includes(searchQuery.toLowerCase());
+    })
+    .sort((a, b) => {
+      const aUnread = getUnreadCountForChat(a.id);
+      const bUnread = getUnreadCountForChat(b.id);
+      
+      // Unread chats come first
+      if (aUnread > 0 && bUnread === 0) return -1;
+      if (bUnread > 0 && aUnread === 0) return 1;
+      
+      // Then sort by last message time (most recent first)
+      const aTime = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0;
+      const bTime = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
 
   return (
     <AuthGuard>
@@ -571,53 +621,74 @@ export default function DashboardPage() {
                 <div className="spinner"></div>
               </div>
             ) : filteredChats.length > 0 ? (
-              filteredChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`p-4 border-b border-gray-700/30 cursor-pointer transition-all duration-300 relative group ${
-                    selectedChat?.id === chat.id 
-                      ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-l-2 border-l-cyan-500' 
-                      : 'hover:bg-gray-700/20'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
-                        {getChatAvatar(chat)}
-                      </div>
-                      {selectedChat?.id === chat.id && (
-                        <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse"></div>
-                      )}
-                      {/* UNREAD BADGE */}
-                      {getUnreadCountForChat(chat.id) > 0 && (
-                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-pink-500/50 animate-pulse">
-                          {getUnreadCountForChat(chat.id) > 9 ? '9+' : getUnreadCountForChat(chat.id)}
+              filteredChats.map((chat) => {
+                const unreadCount = getUnreadCountForChat(chat.id);
+                return (
+                  <div
+                    key={chat.id}
+                    onClick={() => {
+                      setSelectedChat(chat);
+                      // Mark notifications as read when selecting a chat
+                      if (unreadCount > 0) {
+                        markChatNotificationsAsRead(chat.id);
+                      }
+                    }}
+                    className={`p-4 border-b border-gray-700/30 cursor-pointer transition-all duration-300 relative group ${
+                      selectedChat?.id === chat.id 
+                        ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-l-2 border-l-cyan-500' 
+                        : 'hover:bg-gray-700/20'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30">
+                          {getChatAvatar(chat)}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-semibold truncate ${
-                          getUnreadCountForChat(chat.id) > 0 ? 'text-pink-400' : 'text-gray-100'
-                        }`}>
-                          {getChatName(chat)}
-                        </h3>
-                        {chat.last_message && (
-                          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                            {formatTime(chat.last_message.created_at)}
-                          </span>
+                        {selectedChat?.id === chat.id && (
+                          <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse"></div>
                         )}
+                        {/* Online indicator */}
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900"></div>
                       </div>
-                      <p className={`text-sm truncate ${
-                        getUnreadCountForChat(chat.id) > 0 ? 'text-pink-300 font-medium' : 'text-gray-400'
-                      }`}>
-                        {chat.last_message?.content || 'No messages yet'}
-                      </p>
+                      
+                      {/* Chat Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className={`font-semibold truncate ${
+                            unreadCount > 0 ? 'text-white' : 'text-gray-100'
+                          }`}>
+                            {getChatName(chat)}
+                          </h3>
+                          {/* Time + Badge container (right side like WhatsApp) */}
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                            {chat.last_message && (
+                              <span className={`text-xs ${
+                                unreadCount > 0 ? 'text-cyan-400' : 'text-gray-500'
+                              }`}>
+                                {formatTime(chat.last_message.created_at)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-sm truncate flex-1 ${
+                            unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-400'
+                          }`}>
+                            {chat.last_message?.content || 'No messages yet'}
+                          </p>
+                          {/* Unread badge on the right (WhatsApp style) */}
+                          {unreadCount > 0 && (
+                            <div className="ml-2 min-w-5 h-5 px-1.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-cyan-500/50">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-8 px-4">
                 <p className="text-gray-400">No chats yet</p>
@@ -1104,9 +1175,14 @@ export default function DashboardPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-pink-400 text-sm truncate">
-                                  {notification.title}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-pink-400 text-sm truncate">
+                                    {notification.title}
+                                  </p>
+                                  {(!chatId || chatId === null) && (
+                                    <span className="text-xs text-gray-500 italic flex-shrink-0">(Legacy)</span>
+                                  )}
+                                </div>
                                 {chatName && (
                                   <p className="text-xs text-gray-400 truncate">
                                     {chatName}

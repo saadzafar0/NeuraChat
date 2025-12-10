@@ -148,6 +148,24 @@ class SocketClient {
     this.socket?.on('message-deleted', callback);
   }
 
+  // Chat updated listener (Observer pattern for real-time chat list updates)
+  onChatUpdated(callback: (data: { chatId: string; lastMessage: any }) => void) {
+    this.socket?.on('chat:updated', callback);
+  }
+
+  offChatUpdated() {
+    this.socket?.off('chat:updated');
+  }
+
+  // Notification listener (Observer pattern for real-time notifications)
+  onNotification(callback: (notification: any) => void) {
+    this.socket?.on('notification:new', callback);
+  }
+
+  offNotification() {
+    this.socket?.off('notification:new');
+  }
+
   onError(callback: (error: any) => void) {
     this.socket?.on('error', callback);
   }
