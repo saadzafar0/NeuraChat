@@ -184,6 +184,12 @@ class APIClient {
     });
   }
 
+  async endCall(callId: string) {
+    return this.request(`/api/calls/${callId}/end`, {
+      method: 'POST',
+    });
+  }
+
   async getRtmToken() {
     return this.request('/api/agora/rtm-token', {
       method: 'GET',

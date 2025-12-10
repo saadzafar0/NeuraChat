@@ -26,7 +26,7 @@ type CurrentCall = {
 export const useCall = () => {
   const { user } = useAuth();
   const [storeState, setStoreState] = useState(callSessionStore.getState());
-  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteTracks, remoteVideoTracks } = storeState;
+  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteTracks, remoteVideoTracks, isCallUiMinimized } = storeState;
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || '';
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const joiningRef = useRef(false);
@@ -50,6 +50,14 @@ export const useCall = () => {
     callSessionStore.reset();
     joiningRef.current = false;
   }, [currentCall]);
+
+  const minimizeCallUi = useCallback(() => {
+    callSessionStore.update({ isCallUiMinimized: true });
+  }, []);
+
+  const restoreCallUi = useCallback(() => {
+    callSessionStore.update({ isCallUiMinimized: false });
+  }, []);
 
   // RTM setup
   useEffect(() => {
@@ -99,6 +107,7 @@ export const useCall = () => {
               isCaller: false,
               callType: payload.callType || 'audio',
             },
+            isCallUiMinimized: false,
           });
           timeoutRef.current = setTimeout(resetCall, 20000);
         }
@@ -257,6 +266,7 @@ export const useCall = () => {
             callStartedAt: nextCallStartedAt,
             remoteTracks: remoteTracksRef.current,
             remoteVideoTracks: new Map(remoteVideoTracksRef.current),
+            isCallUiMinimized: false,
           });
         } else {
           const { audioTrack, uid } = await joinAudioCall({
@@ -293,6 +303,7 @@ export const useCall = () => {
             callState: 'in-call',
             callStartedAt: nextCallStartedAt,
             remoteTracks: remoteTracksRef.current,
+            isCallUiMinimized: false,
           });
         }
       } catch (err) {
@@ -321,6 +332,7 @@ export const useCall = () => {
         callSessionStore.update({
           currentCall: { callId, chatId, channelName, toUserId, isCaller: true, callType },
           callState: 'calling',
+          isCallUiMinimized: false,
         });
         
         // Try RTM first, fall back to Socket.IO if RTM fails
@@ -354,7 +366,7 @@ export const useCall = () => {
     if (!currentCall || callState !== 'ringing') return;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     const startedAt = Date.now();
-    callSessionStore.update({ callState: 'calling', callStartedAt: startedAt });
+    callSessionStore.update({ callState: 'calling', callStartedAt: startedAt, isCallUiMinimized: false });
     try {
       // Try RTM first, but don't fail if it's not available
       if (rtmReadyRef.current) {
@@ -416,19 +428,37 @@ export const useCall = () => {
       return;
     }
     const peerId = currentCall.isCaller ? currentCall.toUserId : currentCall.fromUserId;
+    const callId = currentCall.callId;
+    
     try {
-      // Try RTM first
+      // Call backend API to end the call (updates database and allows any participant to end)
+      try {
+        await api.endCall(callId);
+      } catch (apiErr: any) {
+        // If API call fails (e.g., 403 if not initiator), still proceed with socket signaling
+        console.warn('[Call] API endCall failed (non-fatal):', apiErr?.message || apiErr);
+      }
+      
+      // Send signaling via RTM (optional, best-effort)
       if (peerId && rtmReadyRef.current) {
         try {
-          await rtmClient.send(peerId, { type: 'call-end', callId: currentCall.callId });
+          await rtmClient.send(peerId, { type: 'call-end', callId });
         } catch (rtmErr) {
           console.warn('[Call] RTM end send failed:', rtmErr);
         }
       }
-      // Always use Socket.IO as well
-      socketClient.callEnd({ otherUserId: peerId || '', callId: currentCall.callId });
-    } catch {}
-    await resetCall();
+      
+      // Always send via Socket.IO (this broadcasts to all participants)
+      socketClient.callEnd({ otherUserId: peerId || '', callId });
+      
+      // Immediately clean up local tracks and reset state
+      // The socket event will trigger resetCall on the other side
+      await resetCall();
+    } catch (err) {
+      console.error('[Call] Error ending call:', err);
+      // Still reset local state even if signaling fails
+      await resetCall();
+    }
   }, [currentCall, resetCall]);
 
   const toggleMute = useCallback(() => {
@@ -477,6 +507,7 @@ export const useCall = () => {
             callType: callType || 'audio',
           },
           callState: 'calling',
+          isCallUiMinimized: false,
         });
         // Add a small delay to avoid race condition when both sides try to access device simultaneously
         // This gives the recipient time to finish setting up their tracks first
@@ -537,6 +568,7 @@ export const useCall = () => {
     isSpeakerMuted,
     callStartedAt,
     remoteVideoTracks,
+    isCallUiMinimized,
     initiateCall,
     acceptCall,
     rejectCall,
@@ -546,6 +578,8 @@ export const useCall = () => {
     toggleSpeaker,
     resetCallSession: resetCall,
     handleJoin,
+    minimizeCallUi,
+    restoreCallUi,
   };
 };
 

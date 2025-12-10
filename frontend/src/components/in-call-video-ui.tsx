@@ -15,6 +15,8 @@ interface InCallVideoUIProps {
   onToggleCamera: () => void;
   onToggleSpeaker: () => void;
   onEndCall: () => void;
+  onMinimize: () => void;
+  onClose: () => void;
 }
 
 export const InCallVideoUI: React.FC<InCallVideoUIProps> = ({
@@ -31,29 +33,200 @@ export const InCallVideoUI: React.FC<InCallVideoUIProps> = ({
   onToggleCamera,
   onToggleSpeaker,
   onEndCall,
+  onMinimize,
+  onClose,
 }) => {
   const [elapsed, setElapsed] = useState('00:00');
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  // Initialize position to top-right of remote video container (will be calculated on mount)
+  const [localVideoPosition, setLocalVideoPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const localVideoBoxRef = useRef<HTMLDivElement>(null);
+  const remoteVideoContainerRef = useRef<HTMLDivElement>(null);
 
-  // Play local video
+  // Play local video - re-attach when track changes or camera is toggled
   useEffect(() => {
-    if (videoTrack && localVideoRef.current) {
-      try {
-        const playPromise = videoTrack.play(localVideoRef.current);
-        if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch((err: any) => {
+    if (!videoTrack || !localVideoRef.current) return;
+    
+    // When camera is enabled, ensure video is playing
+    if (!isCameraOff) {
+      // Small delay to ensure track.setEnabled(true) has taken effect
+      const timeoutId = setTimeout(() => {
+        if (!localVideoRef.current || isCameraOff) return;
+        
+        try {
+          // Re-attach the video track to the element when camera is enabled
+          // This ensures the video displays when toggled back on
+          const playPromise = videoTrack.play(localVideoRef.current);
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch((err: any) => {
+              // Ignore "already playing" and "interrupted" errors - these are normal
+              if (
+                err?.name !== 'NotAllowedError' && 
+                err?.message !== 'The play() request was interrupted' &&
+                !err?.message?.includes('already playing')
+              ) {
+                console.warn('Error playing local video:', err);
+              }
+            });
+          }
+        } catch (err: any) {
+          // Ignore "already playing" errors
+          if (
+            err?.name !== 'NotAllowedError' && 
+            err?.message !== 'The play() request was interrupted' &&
+            !err?.message?.includes('already playing')
+          ) {
             console.error('Error playing local video:', err);
-          });
+          }
         }
-      } catch (err) {
-        console.error('Error playing local video:', err);
-      }
+      }, 100); // Small delay to ensure track is enabled
+      
+      return () => clearTimeout(timeoutId);
     }
-    return () => {
-      // Don't stop track here - it's managed by the call hook
+  }, [videoTrack, isCameraOff]);
+
+  // Initialize position to top-right of remote video container on mount
+  // This should work regardless of whether videoTrack exists
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const initializePosition = () => {
+      if (remoteVideoContainerRef.current) {
+        const container = remoteVideoContainerRef.current;
+        const boxWidth = 192; // w-48 = 12rem = 192px
+        const padding = 16; // 1rem = 16px
+        const containerWidth = container.offsetWidth || container.clientWidth || window.innerWidth;
+        
+        if (containerWidth > 0) {
+          setLocalVideoPosition((prev) => {
+            // Only set if not already set
+            if (prev === null) {
+              return {
+                x: Math.max(0, containerWidth - boxWidth - padding),
+                y: padding,
+              };
+            }
+            return prev;
+          });
+          return true; // Successfully initialized
+        }
+      }
+      return false; // Not ready yet
     };
-  }, [videoTrack]);
+    
+    // Try multiple times with different strategies
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const tryInitialize = () => {
+      attempts++;
+      const success = initializePosition();
+      
+      if (!success && attempts < maxAttempts) {
+        // Try again with increasing delays
+        setTimeout(tryInitialize, 50 * attempts);
+      }
+    };
+    
+    // Try immediately
+    if (!initializePosition()) {
+      // Use requestAnimationFrame for next frame
+      requestAnimationFrame(() => {
+        if (!initializePosition()) {
+          // Fallback to setTimeout
+          setTimeout(tryInitialize, 50);
+        }
+      });
+    }
+    
+    // Handle window resize
+    const handleResize = () => {
+      initializePosition();
+    };
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
+
+  // Drag handlers for local video box
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left mouse button
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (localVideoBoxRef.current && remoteVideoContainerRef.current) {
+      const rect = localVideoBoxRef.current.getBoundingClientRect();
+      const containerRect = remoteVideoContainerRef.current.getBoundingClientRect();
+      
+      // Initialize position if not set
+      if (localVideoPosition === null) {
+        const boxWidth = 192;
+        const padding = 16;
+        setLocalVideoPosition({
+          x: containerRect.width - boxWidth - padding,
+          y: padding,
+        });
+      }
+      
+      // Calculate drag offset relative to remote video container
+      const currentX = localVideoPosition?.x ?? (containerRect.width - rect.width - 16);
+      const currentY = localVideoPosition?.y ?? 16;
+      
+      setDragStart({
+        x: e.clientX - containerRect.left - currentX,
+        y: e.clientY - containerRect.top - currentY,
+      });
+      
+      setIsDragging(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!localVideoBoxRef.current || !remoteVideoContainerRef.current) return;
+      
+      const containerRect = remoteVideoContainerRef.current.getBoundingClientRect();
+      const boxRect = localVideoBoxRef.current.getBoundingClientRect();
+      const boxWidth = boxRect.width || 192; // w-48 = 12rem = 192px
+      const boxHeight = boxRect.height || 144; // h-36 = 9rem = 144px
+      
+      // Calculate new position relative to remote video container
+      // Use the mouse position minus the offset from where we started dragging
+      let newX = e.clientX - containerRect.left - dragStart.x;
+      let newY = e.clientY - containerRect.top - dragStart.y;
+      
+      // Constrain to remote video container bounds with padding
+      const padding = 8;
+      const maxX = containerRect.width - boxWidth - padding;
+      const maxY = containerRect.height - boxHeight - padding;
+      newX = Math.max(padding, Math.min(newX, maxX));
+      newY = Math.max(padding, Math.min(newY, maxY));
+      
+      // Only update if position is valid
+      if (!isNaN(newX) && !isNaN(newY) && isFinite(newX) && isFinite(newY)) {
+        setLocalVideoPosition({ x: newX, y: newY });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart]);
 
   // Play remote videos
   useEffect(() => {
@@ -116,8 +289,29 @@ export const InCallVideoUI: React.FC<InCallVideoUIProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Remote Video - Main View */}
-      <div className="flex-1 relative bg-gray-900">
+      <div className="absolute top-4 right-4 flex gap-2 z-20">
+        <button
+          onClick={onMinimize}
+          className="text-gray-300 hover:text-white bg-gray-800/70 border border-gray-700/70 rounded-full p-2 transition"
+          title="Minimize"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
+          </svg>
+        </button>
+        <button
+          onClick={onClose}
+          className="text-gray-300 hover:text-white bg-gray-800/70 border border-gray-700/70 rounded-full p-2 transition"
+          title="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Remote Video - Main View (Big Rectangle) */}
+      <div ref={remoteVideoContainerRef} className="flex-1 relative bg-gray-900">
         <div id="remote-video-container" className="w-full h-full">
           {!hasRemoteVideo && (
             <div className="w-full h-full flex items-center justify-center">
@@ -133,45 +327,83 @@ export const InCallVideoUI: React.FC<InCallVideoUIProps> = ({
             </div>
           )}
         </div>
-      </div>
 
-      {/* Local Video - Picture in Picture */}
-      {videoTrack ? (
-        <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-cyan-500/50 shadow-2xl">
-          {isCameraOff ? (
-            <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2 mx-auto">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <p className="text-xs text-gray-400">Camera Off</p>
-              </div>
-            </div>
-          ) : (
+        {/* Local Video - Picture in Picture (Draggable) - Positioned inside remote video container */}
+        {/* Always render this box, even if videoTrack is not available */}
+        <div
+          ref={localVideoBoxRef}
+          className="absolute w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 shadow-2xl relative select-none z-50"
+          style={{
+            ...(localVideoPosition
+              ? {
+                  left: `${localVideoPosition.x}px`,
+                  top: `${localVideoPosition.y}px`,
+                  right: 'auto',
+                }
+              : {
+                  // Fallback positioning - top-right corner
+                  right: '1rem',
+                  top: '1rem',
+                  left: 'auto',
+                }),
+            borderColor: videoTrack ? 'rgba(6, 182, 212, 0.5)' : 'rgba(75, 85, 99, 0.5)',
+            cursor: isDragging ? 'grabbing' : 'default',
+            // Ensure box is always visible
+            visibility: 'visible',
+            display: 'block',
+          }}
+        >
+        {/* Drag handle area */}
+        <div
+          className="absolute top-0 left-0 right-0 h-6 bg-gray-900/50 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 hover:bg-gray-900/70 transition-colors"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="w-8 h-1 bg-gray-500 rounded-full"></div>
+        </div>
+        
+        {/* Show video if available */}
+        {videoTrack ? (
+          <>
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${isCameraOff ? 'opacity-0' : ''}`}
+              draggable={false}
+              style={{ pointerEvents: 'none' }}
             />
-          )}
-        </div>
-      ) : (
-        <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600/50 shadow-2xl flex items-center justify-center">
-          <div className="text-center p-4">
-            <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2 mx-auto">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+            {/* Overlay "Camera Off" message when camera is disabled */}
+            {isCameraOff && (
+              <div className="absolute inset-0 w-full h-full bg-gray-900 flex items-center justify-center pointer-events-none">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2 mx-auto">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-xs text-gray-400">Camera Off</p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Show "Camera unavailable" message when no video track */
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center p-4">
+              <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-2 mx-auto">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-xs text-gray-400">Camera unavailable</p>
+              <p className="text-xs text-gray-500 mt-1">Receive-only mode</p>
             </div>
-            <p className="text-xs text-gray-400">Camera unavailable</p>
-            <p className="text-xs text-gray-500 mt-1">Receive-only mode</p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      </div>
+      {/* End Remote Video Container - Local video box is inside this container */}
 
       {/* Call Info Overlay */}
       <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2">

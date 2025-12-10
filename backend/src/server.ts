@@ -535,6 +535,12 @@ io.on('connection', (socket: Socket) => {
       const { getSupabaseClient } = await import('./config/database');
       const supabase = getSupabaseClient();
       
+      // Get all participants before updating
+      const { data: participants } = await supabase
+        .from('call_participants')
+        .select('user_id')
+        .eq('call_id', callId);
+      
       await supabase
         .from('call_participants')
         .update({ status: 'left' })
@@ -573,8 +579,19 @@ io.on('connection', (socket: Socket) => {
           });
       }
 
-      // Emit call ended to other user
-      io.to(`user:${otherUserId}`).emit('call-ended', { callId });
+      // Emit call ended to ALL participants (not just otherUserId)
+      const participantIds = participants?.map(p => p.user_id) || [];
+      if (otherUserId && !participantIds.includes(otherUserId)) {
+        participantIds.push(otherUserId);
+      }
+      // Also include current user if not already in list
+      if (!participantIds.includes(userId)) {
+        participantIds.push(userId);
+      }
+      
+      participantIds.forEach(participantId => {
+        io.to(`user:${participantId}`).emit('call-ended', { callId });
+      });
 
       // Clean up any remaining call state
       if (activeCalls.has(callId)) {
@@ -585,7 +602,7 @@ io.on('connection', (socket: Socket) => {
         activeCalls.delete(callId);
       }
 
-      console.log(`Call ended: ${callId} by ${userId}`);
+      console.log(`Call ended: ${callId} by ${userId}, notified ${participantIds.length} participants`);
     } catch (error) {
       console.error('Call ended error:', error);
     }
