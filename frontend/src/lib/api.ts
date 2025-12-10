@@ -136,16 +136,12 @@ class APIClient {
   }
 
   async uploadAvatar(file: File) {
-    const token = this.getToken();
     const formData = new FormData();
     formData.append('avatar', file);
 
     const response = await fetch(`${this.baseURL}/api/users/avatar`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: 'include',
+      credentials: 'include', // Uses httpOnly cookies for auth
       body: formData,
     });
 
