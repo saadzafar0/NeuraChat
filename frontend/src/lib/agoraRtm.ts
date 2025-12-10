@@ -5,6 +5,7 @@ import api from '@/lib/api';
 
 let AgoraRTM: any = null;
 let connectPromise: Promise<any> | null = null;
+const rtmEnabled = (process.env.NEXT_PUBLIC_ENABLE_AGORA_RTM ?? 'true').toLowerCase() !== 'false';
 
 async function loadRtmSdk() {
   if (typeof window === 'undefined') throw new Error('RTM only on client');
@@ -23,6 +24,7 @@ class RtmClient {
   private connectionAttempts = 0;
   private maxRetries = 3;
   private retryDelay = 2000; // 2 seconds
+  private permanentlyDisabled = false;
 
   private async renewToken() {
     if (!this.client || !this.tokenFetcher) return;
@@ -50,13 +52,20 @@ class RtmClient {
   }
 
   async connect(appId: string, userId: string, token?: string, tokenFetcher?: () => Promise<string>, retryCount = 0): Promise<any> {
+    if (!rtmEnabled || this.permanentlyDisabled) {
+      console.warn('[RTM] RTM disabled by config or previous failures; skipping connect.');
+      return null;
+    }
     const SDK = await loadRtmSdk();
     
     // Reset client if previous connection failed
     if (this.client && !this.isReady) {
       try {
         await this.client.logout().catch(() => {});
-      } catch {}
+      } catch (err) {
+        // Ignore logout noise (e.g., already logged out)
+        console.warn('[RTM] logout during reconnect ignored:', (err as any)?.message || err);
+      }
       this.client = null;
     }
 
@@ -149,7 +158,10 @@ class RtmClient {
               return this.connect(appId, userId, freshToken, tokenFetcher, retryCount + 1);
             }
             
-            throw err;
+            // After max retries, disable RTM to avoid console noise; Socket.IO continues signaling
+            console.warn('[RTM] Disabling RTM after repeated failures; falling back to Socket.IO only.');
+            this.permanentlyDisabled = true;
+            return null;
           } finally {
             connectPromise = null;
           }
@@ -161,7 +173,8 @@ class RtmClient {
       } catch (err) {
         // If all retries failed, log but don't block the app
         console.warn('[RTM] All connection attempts failed. Call signaling will use Socket.IO only.');
-        throw err;
+        this.permanentlyDisabled = true;
+        return null;
       }
     }
     
@@ -185,17 +198,18 @@ class RtmClient {
       try {
         await this.ensureReady();
       } catch (err) {
-        console.warn('[RTM] Cannot send message - RTM not connected:', err);
-        throw new Error('RTM connection not available. Please check your network connection.');
+        console.warn('[RTM] send skipped - RTM not connected. Using socket-only signaling.', err);
+        return false;
       }
     }
-    
+
     try {
       await this.client.sendMessageToPeer({ text: JSON.stringify(payload) }, toUserId);
+      return true;
     } catch (err: any) {
-      console.error('[RTM] Failed to send message:', err);
-      // If RTM fails, we could fall back to Socket.IO, but for now just throw
-      throw err;
+      console.warn('[RTM] sendMessageToPeer failed (non-fatal):', err?.message || err);
+      // Do not throw here; allow caller to fall back to Socket.IO signaling
+      return false;
     }
   }
 

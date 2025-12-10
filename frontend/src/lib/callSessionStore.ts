@@ -24,6 +24,7 @@ type StoreState = {
   callStartedAt: number | null;
   remoteTracks: any[];
   remoteVideoTracks: Map<number, any>;
+  isCallUiMinimized: boolean;
 };
 
 type Listener = (state: StoreState) => void;
@@ -37,6 +38,7 @@ const initialState: StoreState = {
   callStartedAt: null,
   remoteTracks: [],
   remoteVideoTracks: new Map(),
+  isCallUiMinimized: false,
 };
 
 class CallSessionStore {

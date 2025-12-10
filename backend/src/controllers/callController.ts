@@ -243,10 +243,10 @@ export const endCall = async (req: AuthRequest, res: Response): Promise<void> =>
 
     const supabase = getSupabaseClient();
 
-    // Verify user is the initiator or a participant
+    // Verify call exists and user is a participant
     const { data: call, error: callError } = await supabase
       .from('calls')
-      .select('initiator_id')
+      .select('id, chat_id, initiator_id')
       .eq('id', callId)
       .single();
 
@@ -255,11 +255,24 @@ export const endCall = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    // Only initiator can end the call
-    if (call.initiator_id !== userId) {
-      res.status(403).json({ error: 'Only the call initiator can end the call' });
+    // Verify user is a participant of the chat (and thus can end the call)
+    const { data: chatParticipant, error: chatParticipantError } = await supabase
+      .from('chat_participants')
+      .select('chat_id')
+      .eq('chat_id', call.chat_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (chatParticipantError || !chatParticipant) {
+      res.status(403).json({ error: 'You are not a participant of this call' });
       return;
     }
+
+    // Get all call participants before updating
+    const { data: participants } = await supabase
+      .from('call_participants')
+      .select('user_id')
+      .eq('call_id', callId);
 
     // Update all participants to 'left'
     await supabase

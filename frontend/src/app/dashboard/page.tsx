@@ -12,6 +12,7 @@ import AIMessageAssistant from '@/components/AIMessageAssistant';
 import { IncomingCallModal } from '@/components/incoming-call-modal';
 import { InCallUI } from '@/components/in-call-ui';
 import { InCallVideoUI } from '@/components/in-call-video-ui';
+import { CallFloatingBar } from '@/components/call-floating-bar';
 import { useCall } from '@/hooks/useCall';
 import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 import { useRouter } from 'next/navigation';
@@ -72,7 +73,7 @@ export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Call functionality
-  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteVideoTracks, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, toggleSpeaker, resetCallSession, handleJoin } = useCall();
+  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteVideoTracks, isCallUiMinimized, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, toggleSpeaker, resetCallSession, handleJoin, minimizeCallUi, restoreCallUi } = useCall();
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
@@ -329,6 +330,18 @@ export default function DashboardPage() {
     return getInitials(otherUser?.full_name || otherUser?.username || 'U');
   };
 
+  const getOtherUserNameByChatId = (chatId?: string, fallback?: string) => {
+    if (!chatId) return fallback || 'Unknown User';
+    const chatWithOtherUser = chats.find((chat) => chat.id === chatId);
+    if (chatWithOtherUser?.participants) {
+      const otherUser = chatWithOtherUser.participants.find((p) => p.id !== user?.id);
+      if (otherUser) {
+        return otherUser.full_name || otherUser.username || fallback || 'Unknown User';
+      }
+    }
+    return fallback || 'Unknown User';
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -522,9 +535,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold text-gray-100">{getChatName(selectedChat)}</h2>
                     {callState === 'in-call' && (
-                      <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full border border-cyan-500/30">
-                        In Call
-                      </span>
+                      <button
+                        onClick={restoreCallUi}
+                        className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full border border-cyan-500/30 hover:bg-cyan-500/30 transition"
+                        title={isCallUiMinimized ? 'Return to call' : 'Call in progress'}
+                      >
+                        {isCallUiMinimized ? 'Return to Call' : 'In Call'}
+                      </button>
                     )}
                   </div>
                   <p className="text-sm text-gray-400">
@@ -870,24 +887,10 @@ export default function DashboardPage() {
       )}
 
       {/* In-Call UI - Audio */}
-      {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && (
+      {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && !isCallUiMinimized && (
         <InCallUI
           isOpen={true}
-          otherUserName={
-            (() => {
-              // Find the other user's name
-              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
-              if (chatWithOtherUser?.participants) {
-                const otherUser = chatWithOtherUser.participants.find(
-                  (p) => p.id !== user?.id
-                );
-                if (otherUser) {
-                  return otherUser.full_name || otherUser.username || 'Unknown';
-                }
-              }
-              return 'Unknown User';
-            })()
-          }
+          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
           isMuted={isMuted}
           isSpeakerMuted={isSpeakerMuted}
           callStartedAt={callStartedAt}
@@ -895,28 +898,16 @@ export default function DashboardPage() {
           onToggleMute={toggleMute}
           onToggleSpeaker={toggleSpeaker}
           onEndCall={endCall}
+          onMinimize={minimizeCallUi}
+          onClose={minimizeCallUi}
         />
       )}
 
       {/* In-Call UI - Video */}
-      {callState === 'in-call' && currentCall && currentCall.callType === 'video' && (
+      {callState === 'in-call' && currentCall && currentCall.callType === 'video' && !isCallUiMinimized && (
         <InCallVideoUI
           isOpen={true}
-          otherUserName={
-            (() => {
-              // Find the other user's name
-              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
-              if (chatWithOtherUser?.participants) {
-                const otherUser = chatWithOtherUser.participants.find(
-                  (p) => p.id !== user?.id
-                );
-                if (otherUser) {
-                  return otherUser.full_name || otherUser.username || 'Unknown';
-                }
-              }
-              return 'Unknown User';
-            })()
-          }
+          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
           isSpeakerMuted={isSpeakerMuted}
@@ -928,24 +919,28 @@ export default function DashboardPage() {
           onToggleCamera={toggleCamera}
           onToggleSpeaker={toggleSpeaker}
           onEndCall={endCall}
+          onMinimize={minimizeCallUi}
+          onClose={minimizeCallUi}
+        />
+      )}
+
+      {/* Minimized call bar */}
+      {callState === 'in-call' && currentCall && isCallUiMinimized && (
+        <CallFloatingBar
+          otherUserName={getOtherUserNameByChatId(currentCall.chatId, currentCall.displayName)}
+          callType={currentCall.callType || 'audio'}
+          callStartedAt={callStartedAt}
+          isMuted={isMuted}
+          isSpeakerMuted={isSpeakerMuted}
+          onResume={restoreCallUi}
+          onEnd={endCall}
         />
       )}
 
       {/* Outgoing call UI */}
       {(callState === 'calling' || callState === 'rejected') && currentCall?.isCaller && (
         <OutgoingCallUI
-          otherUserName={
-            (() => {
-              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
-              if (chatWithOtherUser?.participants) {
-                const otherUser = chatWithOtherUser.participants.find((p) => p.id !== user?.id);
-                if (otherUser) {
-                  return otherUser.full_name || otherUser.username || 'Unknown';
-                }
-              }
-              return currentCall.displayName || 'Unknown User';
-            })()
-          }
+          otherUserName={getOtherUserNameByChatId(currentCall.chatId, currentCall.displayName)}
           status={callState === 'rejected' ? 'rejected' : 'calling'}
           onCancel={endCall}
           onReturnToChat={() => {

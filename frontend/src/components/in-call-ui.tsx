@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-interface InCallUIProps { isOpen: boolean; otherUserName: string; isMuted: boolean; isSpeakerMuted: boolean; callStartedAt?: number | null; audioTrack?: any; onToggleMute: () => void; onToggleSpeaker: () => void; onEndCall: () => void; }
+interface InCallUIProps { isOpen: boolean; otherUserName: string; isMuted: boolean; isSpeakerMuted: boolean; callStartedAt?: number | null; audioTrack?: any; onToggleMute: () => void; onToggleSpeaker: () => void; onEndCall: () => void; onMinimize: () => void; onClose: () => void; }
 
 export const InCallUI: React.FC<InCallUIProps> = ({
   isOpen,
@@ -13,6 +13,8 @@ export const InCallUI: React.FC<InCallUIProps> = ({
   onToggleMute,
   onToggleSpeaker,
   onEndCall,
+  onMinimize,
+  onClose,
 }) => {
   const [levels, setLevels] = useState<number[]>(() => Array(12).fill(0));
   const [elapsed, setElapsed] = useState('00:00');
@@ -52,6 +54,26 @@ export const InCallUI: React.FC<InCallUIProps> = ({
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl" />
 
         <div className="relative backdrop-blur-xl bg-gray-800/40 border border-gray-700/50 rounded-2xl p-8 shadow-2xl">
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={onMinimize}
+              className="text-gray-300 hover:text-white bg-gray-700/60 border border-gray-600/60 rounded-full p-2 transition"
+              title="Minimize"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
+              </svg>
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-300 hover:text-white bg-gray-700/60 border border-gray-600/60 rounded-full p-2 transition"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <div className="mx-auto w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-6 border border-cyan-500/30">
             <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">{initials}</div>
           </div>
