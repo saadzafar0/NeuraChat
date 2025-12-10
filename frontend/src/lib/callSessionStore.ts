@@ -9,7 +9,9 @@ type CurrentCall = {
   toUserId?: string;
   fromUserId?: string;
   isCaller: boolean;
+  callType?: 'audio' | 'video';
   audioTrack?: any;
+  videoTrack?: any;
   uid?: number;
 };
 
@@ -17,9 +19,11 @@ type StoreState = {
   callState: CallState;
   currentCall: CurrentCall | null;
   isMuted: boolean;
+  isCameraOff: boolean;
   isSpeakerMuted: boolean;
   callStartedAt: number | null;
   remoteTracks: any[];
+  remoteVideoTracks: Map<number, any>;
 };
 
 type Listener = (state: StoreState) => void;
@@ -28,9 +32,11 @@ const initialState: StoreState = {
   callState: 'idle',
   currentCall: null,
   isMuted: false,
+  isCameraOff: false,
   isSpeakerMuted: false,
   callStartedAt: null,
   remoteTracks: [],
+  remoteVideoTracks: new Map(),
 };
 
 class CallSessionStore {

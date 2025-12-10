@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { joinAudioCall, leaveAudioCall } from '@/lib/agora';
+import { joinAudioCall, leaveAudioCall, joinVideoCall, leaveVideoCall } from '@/lib/agora';
 import { rtmClient } from '@/lib/agoraRtm';
 import socketClient from '@/lib/socket';
 import { callSessionStore } from '@/lib/callSessionStore';
@@ -17,28 +17,36 @@ type CurrentCall = {
   fromUserId?: string;
   displayName?: string;
   isCaller: boolean;
+  callType?: 'audio' | 'video';
   audioTrack?: any;
+  videoTrack?: any;
   uid?: number;
 };
 
 export const useCall = () => {
   const { user } = useAuth();
   const [storeState, setStoreState] = useState(callSessionStore.getState());
-  const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, remoteTracks } = storeState;
+  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteTracks, remoteVideoTracks } = storeState;
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || '';
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const joiningRef = useRef(false);
   const rtmReadyRef = useRef(false);
   const remoteTracksRef = useRef<any[]>(remoteTracks || []);
 
+  const remoteVideoTracksRef = useRef<Map<number, any>>(new Map());
+
   const resetCall = useCallback(async () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
-    if (currentCall?.audioTrack) {
+    if (currentCall?.callType === 'video') {
+      await leaveVideoCall(currentCall.audioTrack, currentCall.videoTrack).catch(() => {});
+    } else if (currentCall?.audioTrack) {
       await leaveAudioCall(currentCall.audioTrack).catch(() => {});
     }
     remoteTracksRef.current.forEach((t) => { try { t.stop?.(); } catch {} });
     remoteTracksRef.current = [];
+    remoteVideoTracksRef.current.forEach((t) => { try { t.stop?.(); t.close?.(); } catch {} });
+    remoteVideoTracksRef.current.clear();
     callSessionStore.reset();
     joiningRef.current = false;
   }, [currentCall]);
@@ -64,15 +72,19 @@ export const useCall = () => {
 
       try {
         await rtmClient.connect(appId, user.id, rtmToken, fetchFreshToken);
-      } catch (err) {
-        console.error('RTM connect failed', err);
+        rtmReadyRef.current = true;
+        console.log('[RTM] Ready for call signaling');
+      } catch (err: any) {
+        console.error('[RTM] Connection failed after retries:', err);
         rtmReadyRef.current = false;
         timeoutRef.current && clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
+        
+        // Don't block the app - calls can still work via Socket.IO
+        // But log a warning that RTM features won't work
+        console.warn('[RTM] RTM connection unavailable. Peer-to-peer signaling will be limited. Calls will still work via Socket.IO.');
         return;
       }
-
-      rtmReadyRef.current = true;
       rtmClient.onMessage((_from, payload) => {
         const { type } = payload || {};
         if (type === 'call-invite') {
@@ -85,6 +97,7 @@ export const useCall = () => {
               channelName: payload.channelName,
               fromUserId: payload.fromUserId,
               isCaller: false,
+              callType: payload.callType || 'audio',
             },
           });
           timeoutRef.current = setTimeout(resetCall, 20000);
@@ -101,6 +114,7 @@ export const useCall = () => {
             toUserId: payload.toUserId,
             fromUserId: payload.fromUserId,
             isCaller: true,
+            callType: payload.callType || 'audio',
             displayName: currentCall?.displayName,
           };
           const startedAt = payload.startedAt || callSessionStore.getState().callStartedAt || Date.now();
@@ -109,7 +123,7 @@ export const useCall = () => {
             callState: 'in-call',
             callStartedAt: startedAt,
           });
-          handleJoin(payload.callId, payload.channelName);
+          handleJoin(payload.callId, payload.channelName, payload.callType || 'audio');
         }
         if (type === 'call-reject') {
           if (timeoutRef.current) {
@@ -150,47 +164,131 @@ export const useCall = () => {
   }, [user?.id, appId]); // limit to identity/app changes to avoid re-login loops
 
   const handleJoin = useCallback(
-    async (callId: string, channelName: string) => {
+    async (callId: string, channelName: string, callType: 'audio' | 'video' = 'audio', localVideoElement?: HTMLVideoElement | null) => {
       if (!user || joiningRef.current) return;
       joiningRef.current = true;
       try {
         const joinRes: any = await api.joinCall(callId);
-        const { audioTrack, uid } = await joinAudioCall({
-          appId,
-          token: joinRes.token,
-          channelName: channelName || joinRes.channelName,
-          uid: joinRes.uid,
-          onRemoteAudio: (track) => {
-            remoteTracksRef.current.push(track);
-            track.setVolume?.(isSpeakerMuted ? 0 : 100);
-          },
-          onUserLeft: async () => {
-            await resetCall();
-          },
-        });
         const latestState = callSessionStore.getState();
         const existingCall = latestState.currentCall || currentCall;
-        const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
+        const callTypeToUse = callType || existingCall?.callType || 'audio';
 
-        callSessionStore.update({
-          currentCall: existingCall
-            ? {
-                ...existingCall,
-                audioTrack,
-                uid,
-                channelName: channelName || existingCall.channelName,
-                chatId:
-                  existingCall.chatId ||
-                  latestState.currentCall?.chatId ||
-                  currentCall?.chatId ||
-                  joinRes.chatId ||
-                  '',
-              }
-            : { callId, chatId: joinRes.chatId || '', channelName, isCaller: false, audioTrack, uid },
-          callState: 'in-call',
-          callStartedAt: nextCallStartedAt,
-          remoteTracks: remoteTracksRef.current,
-        });
+        if (callTypeToUse === 'video') {
+          let audioTrack: any = null;
+          let videoTrack: any = null;
+          let uid: number | undefined;
+          
+          try {
+            const result = await joinVideoCall({
+              appId,
+              token: joinRes.token,
+              channelName: channelName || joinRes.channelName,
+              uid: joinRes.uid,
+              localVideoElement,
+              onRemoteVideo: (track, remoteUid) => {
+                remoteVideoTracksRef.current.set(remoteUid, track);
+                callSessionStore.update({
+                  remoteVideoTracks: new Map(remoteVideoTracksRef.current),
+                });
+              },
+              onRemoteAudio: (track) => {
+                remoteTracksRef.current.push(track);
+                track.setVolume?.(isSpeakerMuted ? 0 : 100);
+              },
+              onUserLeft: async (leftUid) => {
+                remoteVideoTracksRef.current.delete(leftUid as number);
+                callSessionStore.update({
+                  remoteVideoTracks: new Map(remoteVideoTracksRef.current),
+                });
+                if (remoteVideoTracksRef.current.size === 0 && remoteTracksRef.current.length === 0) {
+                  await resetCall();
+                }
+              },
+            });
+            // Result will always have tracks (even if null) - this allows receive-only mode
+            audioTrack = result?.audioTrack || null;
+            videoTrack = result?.videoTrack || null;
+            uid = result?.uid || joinRes.uid;
+            
+            if (!audioTrack && !videoTrack) {
+              console.log('ℹ️ Joined in receive-only mode - can receive remote video/audio');
+            }
+          } catch (error: any) {
+            console.error('Failed to join video call:', error);
+            // If permission denied, show user-friendly error and reset call
+            if (error?.message?.includes('permission') || error?.code === 'PERMISSION_DENIED' || error?.name === 'NotAllowedError') {
+              alert('Camera and microphone permissions are required for video calls. Please grant permissions in your browser settings and try again.');
+              await resetCall();
+              return;
+            }
+            // For any other error (including device in use), still proceed with receive-only mode
+            // This is crucial for testing on the same device with multiple browsers
+            console.warn('⚠️ Error during join, but proceeding in receive-only mode:', error.message);
+            audioTrack = null;
+            videoTrack = null;
+            uid = joinRes.uid;
+          }
+          const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
+
+          callSessionStore.update({
+            currentCall: existingCall
+              ? {
+                  ...existingCall,
+                  audioTrack,
+                  videoTrack,
+                  uid,
+                  callType: 'video',
+                  channelName: channelName || existingCall.channelName,
+                  chatId:
+                    existingCall.chatId ||
+                    latestState.currentCall?.chatId ||
+                    currentCall?.chatId ||
+                    joinRes.chatId ||
+                    '',
+                }
+              : { callId, chatId: joinRes.chatId || '', channelName, isCaller: false, callType: 'video', audioTrack, videoTrack, uid },
+            callState: 'in-call',
+            callStartedAt: nextCallStartedAt,
+            remoteTracks: remoteTracksRef.current,
+            remoteVideoTracks: new Map(remoteVideoTracksRef.current),
+          });
+        } else {
+          const { audioTrack, uid } = await joinAudioCall({
+            appId,
+            token: joinRes.token,
+            channelName: channelName || joinRes.channelName,
+            uid: joinRes.uid,
+            onRemoteAudio: (track) => {
+              remoteTracksRef.current.push(track);
+              track.setVolume?.(isSpeakerMuted ? 0 : 100);
+            },
+            onUserLeft: async () => {
+              await resetCall();
+            },
+          });
+          const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
+
+          callSessionStore.update({
+            currentCall: existingCall
+              ? {
+                  ...existingCall,
+                  audioTrack,
+                  uid,
+                  callType: 'audio',
+                  channelName: channelName || existingCall.channelName,
+                  chatId:
+                    existingCall.chatId ||
+                    latestState.currentCall?.chatId ||
+                    currentCall?.chatId ||
+                    joinRes.chatId ||
+                    '',
+                }
+              : { callId, chatId: joinRes.chatId || '', channelName, isCaller: false, callType: 'audio', audioTrack, uid },
+            callState: 'in-call',
+            callStartedAt: nextCallStartedAt,
+            remoteTracks: remoteTracksRef.current,
+          });
+        }
       } catch (err) {
         console.error('Join call failed', err);
         resetCall();
@@ -198,27 +296,45 @@ export const useCall = () => {
         joiningRef.current = false;
       }
     },
-    [appId, resetCall, user]
+    [appId, resetCall, user, isSpeakerMuted, currentCall, callStartedAt]
   );
 
   const initiateCall = useCallback(
-    async (chatId: string, toUserId: string, displayName?: string) => {
-      if (!user || callState !== 'idle' || !rtmReadyRef.current) return;
+    async (chatId: string, toUserId: string, displayName?: string, callType: 'audio' | 'video' = 'audio') => {
+      if (!user || callState !== 'idle') return;
+      
+      // RTM is preferred but not required - Socket.IO will handle signaling
+      if (!rtmReadyRef.current) {
+        console.warn('[Call] RTM not ready, using Socket.IO only for signaling');
+      }
+      
       try {
-        const created: any = await api.createCall({ chatId, type: 'audio' });
+        const created: any = await api.createCall({ chatId, type: callType });
         const callId = created?.call?.id || created?.callId || `call_${Date.now()}`;
         const channelName = `chat_${chatId}`;
         callSessionStore.update({
-          currentCall: { callId, chatId, channelName, toUserId, isCaller: true, displayName },
+          currentCall: { callId, chatId, channelName, toUserId, isCaller: true, callType, displayName },
           callState: 'calling',
         });
-        await rtmClient.send(toUserId, {
-          type: 'call-invite',
-          callId,
-        chatId,
-        channelName,
-          fromUserId: user.id,
-        });
+        
+        // Try RTM first, fall back to Socket.IO if RTM fails
+        if (rtmReadyRef.current) {
+          try {
+            await rtmClient.send(toUserId, {
+              type: 'call-invite',
+              callId,
+              chatId,
+              channelName,
+              callType,
+              fromUserId: user.id,
+            });
+          } catch (rtmErr) {
+            console.warn('[Call] RTM send failed, using Socket.IO only:', rtmErr);
+          }
+        }
+        
+        // Always use Socket.IO as primary/backup signaling
+        socketClient.callInitiate({ chatId, toUserId, callId, callType });
         timeoutRef.current = setTimeout(() => resetCall(), 20000);
       } catch (err) {
         console.error('Call initiate failed', err);
@@ -229,21 +345,39 @@ export const useCall = () => {
   );
 
   const acceptCall = useCallback(async () => {
-    if (!currentCall || callState !== 'ringing' || !rtmReadyRef.current) return;
+    if (!currentCall || callState !== 'ringing') return;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     const startedAt = Date.now();
     callSessionStore.update({ callState: 'calling', callStartedAt: startedAt });
     try {
-      await rtmClient.send(currentCall.fromUserId!, {
-        type: 'call-accept',
-        callId: currentCall.callId,
-        channelName: currentCall.channelName,
+      // Try RTM first, but don't fail if it's not available
+      if (rtmReadyRef.current) {
+        try {
+          await rtmClient.send(currentCall.fromUserId!, {
+            type: 'call-accept',
+            callId: currentCall.callId,
+            channelName: currentCall.channelName,
+            chatId: currentCall.chatId,
+            callType: currentCall.callType || 'audio',
+            startedAt,
+          });
+        } catch (rtmErr) {
+          console.warn('[Call] RTM accept send failed, continuing with Socket.IO:', rtmErr);
+        }
+      }
+      
+      // Also send via Socket.IO (this is the primary method)
+      socketClient.callAccept({
         chatId: currentCall.chatId,
-        startedAt,
+        channelName: currentCall.channelName,
+        callerId: currentCall.fromUserId!,
+        callId: currentCall.callId,
       });
+      
       // Optimistically show in-call UI while joining
       callSessionStore.update({ callState: 'in-call', callStartedAt: startedAt });
-      await handleJoin(currentCall.callId, currentCall.channelName);
+      // For video calls, the local video element will be handled by the InCallVideoUI component
+      await handleJoin(currentCall.callId, currentCall.channelName, currentCall.callType || 'audio', null);
     } catch (err) {
       console.error('Accept failed', err);
       resetCall();
@@ -251,12 +385,20 @@ export const useCall = () => {
   }, [callState, currentCall, handleJoin, resetCall]);
 
   const rejectCall = useCallback(async () => {
-    if (!currentCall || callState !== 'ringing' || !rtmReadyRef.current) return;
+    if (!currentCall || callState !== 'ringing') return;
     try {
-      await rtmClient.send(currentCall.fromUserId!, {
-        type: 'call-reject',
-        callId: currentCall.callId,
-      });
+      // Try RTM first
+      if (rtmReadyRef.current) {
+        try {
+          await rtmClient.send(currentCall.fromUserId!, {
+            type: 'call-reject',
+            callId: currentCall.callId,
+          });
+        } catch (rtmErr) {
+          console.warn('[Call] RTM reject send failed:', rtmErr);
+        }
+      }
+      // Always use Socket.IO as well
       socketClient.callReject({ callerId: currentCall.fromUserId!, callId: currentCall.callId });
     } catch {}
     resetCall();
@@ -269,9 +411,15 @@ export const useCall = () => {
     }
     const peerId = currentCall.isCaller ? currentCall.toUserId : currentCall.fromUserId;
     try {
+      // Try RTM first
       if (peerId && rtmReadyRef.current) {
-        await rtmClient.send(peerId, { type: 'call-end', callId: currentCall.callId });
+        try {
+          await rtmClient.send(peerId, { type: 'call-end', callId: currentCall.callId });
+        } catch (rtmErr) {
+          console.warn('[Call] RTM end send failed:', rtmErr);
+        }
       }
+      // Always use Socket.IO as well
       socketClient.callEnd({ otherUserId: peerId || '', callId: currentCall.callId });
     } catch {}
     await resetCall();
@@ -294,17 +442,25 @@ export const useCall = () => {
     });
   }, [isSpeakerMuted]);
 
+  const toggleCamera = useCallback(() => {
+    if (!currentCall?.videoTrack) return;
+    const cameraOff = !isCameraOff;
+    currentCall.videoTrack.setEnabled(!cameraOff);
+    callSessionStore.update({ isCameraOff: cameraOff });
+  }, [currentCall, isCameraOff]);
+
   useEffect(() => {
     const unsub = callSessionStore.subscribe((next) => {
       setStoreState(next);
       remoteTracksRef.current = next.remoteTracks || [];
+      remoteVideoTracksRef.current = next.remoteVideoTracks || new Map();
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
     socketClient.onReady(() => {
-      socketClient.onCallAccepted(({ callId, channelName, callerId }: any) => {
+      socketClient.onCallAccepted(({ callId, channelName, callerId, callType }: any) => {
         callSessionStore.update({
           currentCall: {
             callId,
@@ -312,10 +468,15 @@ export const useCall = () => {
             channelName,
             toUserId: callerId,
             isCaller: true,
+            callType: callType || 'audio',
           },
           callState: 'calling',
         });
-        handleJoin(callId, channelName);
+        // Add a small delay to avoid race condition when both sides try to access device simultaneously
+        // This gives the recipient time to finish setting up their tracks first
+        setTimeout(() => {
+          handleJoin(callId, channelName, callType || 'audio');
+        }, 1000); // 1 second delay
       });
 
       socketClient.onCallRejected(({ callId }: any) => {
@@ -368,15 +529,19 @@ export const useCall = () => {
     callState,
     currentCall,
     isMuted,
+    isCameraOff,
     isSpeakerMuted,
     callStartedAt,
+    remoteVideoTracks,
     initiateCall,
     acceptCall,
     rejectCall,
     endCall,
     toggleMute,
+    toggleCamera,
     toggleSpeaker,
     resetCallSession: resetCall,
+    handleJoin,
   };
 };
 
