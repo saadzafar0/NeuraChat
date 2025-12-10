@@ -169,3 +169,80 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// --- Forgot Password ---
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const supabase = getSupabaseClient();
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    // Use Supabase's built-in password reset
+    const resetUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${resetUrl}/reset-password`,
+    });
+
+    if (error) {
+      console.error('Password reset error:', error);
+      // Don't reveal if email exists or not for security
+      res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+      return;
+    }
+
+    res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// --- Reset Password ---
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const supabase = getSupabaseClient();
+    const { accessToken, newPassword } = req.body;
+
+    if (!accessToken || !newPassword) {
+      res.status(400).json({ error: 'Access token and new password are required' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return;
+    }
+
+    // Set the session using the access token from the URL
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: accessToken, // Supabase requires both, but we only have access token
+    });
+
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      res.status(400).json({ error: 'Invalid or expired reset link' });
+      return;
+    }
+
+    // Update the password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) {
+      console.error('Password update error:', updateError);
+      res.status(400).json({ error: 'Failed to update password. The link may have expired.' });
+      return;
+    }
+
+    res.json({ message: 'Password has been reset successfully. You can now login with your new password.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
