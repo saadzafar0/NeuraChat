@@ -496,6 +496,28 @@ export const useCall = () => {
 
   useEffect(() => {
     socketClient.onReady(() => {
+      // Handle incoming call from Socket.IO (with caller info from server)
+      socketClient.onIncomingCall(({ callId, chatId, channelName, fromUserId, fromUserName, fromUserAvatar, callType }: any) => {
+        const currentState = callSessionStore.getState();
+        if (currentState.callState !== 'idle') return; // Already in a call
+        
+        callSessionStore.update({
+          callState: 'ringing',
+          currentCall: {
+            callId,
+            chatId,
+            channelName,
+            fromUserId,
+            fromUserName: fromUserName || 'Unknown',
+            fromUserAvatar: fromUserAvatar || null,
+            isCaller: false,
+            callType: callType || 'audio',
+          },
+          isCallUiMinimized: false,
+        });
+        timeoutRef.current = setTimeout(resetCall, 20000);
+      });
+
       socketClient.onCallAccepted(({ callId, channelName, callerId, callType }: any) => {
         callSessionStore.update({
           currentCall: {
@@ -553,6 +575,7 @@ export const useCall = () => {
     });
 
     return () => {
+      socketClient.offIncomingCall();
       socketClient.offCallAccepted();
       socketClient.offCallRejected();
       socketClient.offCallEnded();

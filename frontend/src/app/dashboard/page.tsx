@@ -1354,7 +1354,8 @@ export default function DashboardPage() {
           <IncomingCallModal
             isOpen={true}
             callerName={
-              (() => {
+              // Use fromUserName from Socket.IO if available, otherwise look up from chats
+              currentCall.fromUserName || (() => {
                 // Try to find caller name from selectedChat first
                 if (selectedChat?.participants) {
                   const caller = selectedChat.participants.find((p) => p.id === currentCall.fromUserId);
@@ -1385,7 +1386,7 @@ export default function DashboardPage() {
       {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && !isCallUiMinimized && (
         <InCallUI
           isOpen={true}
-          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
+          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           isMuted={isMuted}
           isSpeakerMuted={isSpeakerMuted}
           callStartedAt={callStartedAt}
@@ -1402,7 +1403,7 @@ export default function DashboardPage() {
       {callState === 'in-call' && currentCall && currentCall.callType === 'video' && !isCallUiMinimized && (
         <InCallVideoUI
           isOpen={true}
-          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
+          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
           isSpeakerMuted={isSpeakerMuted}
@@ -1422,7 +1423,7 @@ export default function DashboardPage() {
       {/* Minimized call bar */}
       {callState === 'in-call' && currentCall && isCallUiMinimized && (
         <CallFloatingBar
-          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
+          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           callType={currentCall.callType || 'audio'}
           callStartedAt={callStartedAt}
           isMuted={isMuted}

@@ -497,7 +497,16 @@ export const getUserCallLogs = async (req: AuthRequest, res: Response): Promise<
         chats (
           id,
           type,
-          name
+          name,
+          chat_participants (
+            user_id,
+            users (
+              id,
+              username,
+              full_name,
+              avatar_url
+            )
+          )
         ),
         call_logs (
           id,
@@ -531,8 +540,8 @@ export const getUserCallLogs = async (req: AuthRequest, res: Response): Promise<
     const callLogs = calls?.map(call => {
       const isInitiator = call.initiator_id === userId;
       
-      // Get other participants (excluding current user)
-      const otherParticipants = call.call_participants
+      // Get other participants from call_participants (excluding current user)
+      let otherParticipants = call.call_participants
         ?.filter((p: any) => p.user_id !== userId)
         .map((p: any) => ({
           userId: p.user_id,
@@ -540,6 +549,30 @@ export const getUserCallLogs = async (req: AuthRequest, res: Response): Promise<
           joinedAt: p.joined_at,
           user: p.users
         })) || [];
+
+      // Get the chat data (Supabase returns single object for single FK relation)
+      const chatInfo = call.chats as any;
+
+      // If no call participants found (e.g., missed/rejected call), 
+      // get the other user from chat_participants
+      if (otherParticipants.length === 0 && chatInfo?.chat_participants) {
+        const otherChatParticipants = chatInfo.chat_participants
+          .filter((cp: any) => cp.user_id !== userId)
+          .map((cp: any) => ({
+            userId: cp.user_id,
+            status: 'unknown',
+            joinedAt: null,
+            user: cp.users
+          }));
+        otherParticipants = otherChatParticipants;
+      }
+
+      // Build chat object without chat_participants (to keep response clean)
+      const chatData = chatInfo ? {
+        id: chatInfo.id,
+        type: chatInfo.type,
+        name: chatInfo.name
+      } : null;
 
       return {
         id: call.id,
@@ -550,7 +583,7 @@ export const getUserCallLogs = async (req: AuthRequest, res: Response): Promise<
         startTime: call.start_time,
         endTime: call.end_time,
         role: isInitiator ? 'initiator' : 'receiver',
-        chat: call.chats,
+        chat: chatData,
         participants: otherParticipants,
         log: call.call_logs?.[0] || null
       };

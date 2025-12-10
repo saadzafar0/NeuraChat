@@ -8,6 +8,8 @@ type CurrentCall = {
   channelName: string;
   toUserId?: string;
   fromUserId?: string;
+  fromUserName?: string;
+  fromUserAvatar?: string | null;
   isCaller: boolean;
   callType?: 'audio' | 'video';
   audioTrack?: any;

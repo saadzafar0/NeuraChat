@@ -291,6 +291,13 @@ io.on('connection', (socket: Socket) => {
       // Create call record in database
       const { getSupabaseClient } = await import('./config/database');
       const supabase = getSupabaseClient();
+
+      // Get caller's info for display
+      const { data: callerInfo } = await supabase
+        .from('users')
+        .select('id, username, full_name, avatar_url')
+        .eq('id', userId)
+        .single();
       
       const { data: call, error: callError } = await supabase
         .from('calls')
@@ -368,6 +375,8 @@ io.on('connection', (socket: Socket) => {
       
       io.to(recipientRoom).emit('incoming-call', {
         fromUserId: userId,
+        fromUserName: callerInfo?.full_name || callerInfo?.username || 'Unknown',
+        fromUserAvatar: callerInfo?.avatar_url || null,
         chatId,
         channelName,
         callId,
