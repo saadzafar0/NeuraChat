@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../config/database';
 
 type AuthRequest = Request & {
   userId?: string;
+  file?: Express.Multer.File;
 };
 
 // Get user profile by ID
@@ -233,6 +234,140 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     res.json({ message: 'Password changed successfully' });
   } catch (error: any) {
     console.error('Change password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Upload avatar
+export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const supabase = getSupabaseClient();
+    const userId = req.userId;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.' });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      res.status(400).json({ error: 'File too large. Maximum size is 5MB.' });
+      return;
+    }
+
+    // Create unique filename
+    const fileExtension = file.originalname.split('.').pop() || 'jpg';
+    const fileName = `${userId}/${Date.now()}.${fileExtension}`;
+
+    // Delete old avatar if exists
+    const { data: userData } = await supabase
+      .from('users')
+      .select('avatar_url')
+      .eq('id', userId)
+      .single();
+
+    if (userData?.avatar_url) {
+      // Extract old path from URL
+      const oldPath = userData.avatar_url.split('/avatars/').pop();
+      if (oldPath) {
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+    }
+
+    // Upload new avatar
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Avatar upload error:', uploadError);
+      res.status(500).json({ error: 'Failed to upload avatar' });
+      return;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+
+    const avatarUrl = urlData.publicUrl;
+
+    // Update user profile with new avatar URL
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      res.status(500).json({ error: 'Failed to update profile with new avatar' });
+      return;
+    }
+
+    res.json({ 
+      message: 'Avatar uploaded successfully',
+      avatar_url: avatarUrl,
+      user: updatedUser
+    });
+  } catch (error: any) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Delete avatar
+export const deleteAvatar = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const supabase = getSupabaseClient();
+    const userId = req.userId;
+
+    // Get current avatar
+    const { data: userData } = await supabase
+      .from('users')
+      .select('avatar_url')
+      .eq('id', userId)
+      .single();
+
+    if (userData?.avatar_url) {
+      // Extract path from URL
+      const oldPath = userData.avatar_url.split('/avatars/').pop();
+      if (oldPath) {
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+    }
+
+    // Set avatar_url to null
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({ avatar_url: null })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      res.status(500).json({ error: 'Failed to update profile' });
+      return;
+    }
+
+    res.json({ 
+      message: 'Avatar deleted successfully',
+      user: updatedUser
+    });
+  } catch (error: any) {
+    console.error('Delete avatar error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

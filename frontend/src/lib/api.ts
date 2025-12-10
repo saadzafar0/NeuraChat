@@ -135,6 +135,34 @@ class APIClient {
     });
   }
 
+  async uploadAvatar(file: File) {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${this.baseURL}/api/users/avatar`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload avatar');
+    }
+
+    return response.json();
+  }
+
+  async deleteAvatar() {
+    return this.request('/api/users/avatar', {
+      method: 'DELETE',
+    });
+  }
+
   async changePassword(data: { current_password: string; new_password: string }) {
     return this.request('/users/change-password', {
       method: 'PUT',

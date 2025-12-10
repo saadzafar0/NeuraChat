@@ -1,29 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import EditProfileModal from '@/components/EditProfileModal';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import api from '@/lib/api';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local state to reflect updates immediately
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       setDisplayName(user.full_name || '');
       setUsername(user.username || '');
       setStatusMessage(user.status_message || '');
+      setAvatarUrl(user.avatar_url || null);
     }
   }, [user]);
 
@@ -52,6 +57,66 @@ export default function SettingsPage() {
     setUsername(updated.username);
     setStatusMessage(updated.status_message);
     setIsEditProfileOpen(false);
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const response = await api.uploadAvatar(file) as { avatar_url: string };
+      setAvatarUrl(response.avatar_url);
+      // Refresh user context to update avatar everywhere
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      alert(error.message || 'Failed to upload avatar');
+    } finally {
+      setAvatarUploading(false);
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!confirm('Are you sure you want to remove your profile photo?')) return;
+
+    setAvatarUploading(true);
+    try {
+      await api.deleteAvatar();
+      setAvatarUrl(null);
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (error: any) {
+      console.error('Avatar delete error:', error);
+      alert(error.message || 'Failed to delete avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   return (
@@ -117,30 +182,67 @@ export default function SettingsPage() {
 
                 {/* Avatar Upload with Gradient Glow */}
                 <div className="flex items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
-                  <div className="relative group/avatar cursor-pointer flex-shrink-0">
+                  <div 
+                    className="relative group/avatar cursor-pointer flex-shrink-0"
+                    onClick={handleAvatarClick}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full blur opacity-50 group-hover/avatar:opacity-75 transition-opacity"></div>
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl sm:text-2xl shadow-lg">
-                      {getInitials(displayName || username)}
-                      <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-                        <svg
-                          className="w-8 h-8 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl sm:text-2xl shadow-lg overflow-hidden">
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getInitials(displayName || username)
+                      )}
+                      <div className={`absolute inset-0 bg-black/50 rounded-full flex items-center justify-center transition-opacity ${avatarUploading ? 'opacity-100' : 'opacity-0 group-hover/avatar:opacity-100'}`}>
+                        {avatarUploading ? (
+                          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        ) : (
+                          <svg
+                            className="w-8 h-8 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm sm:text-base text-gray-300 mb-1">Click the icon to upload a new profile picture</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Maximum file size: 5MB</p>
+                    <p className="text-sm sm:text-base text-gray-300 mb-1">Click to upload a new profile picture</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-2">Maximum file size: 5MB</p>
+                    {avatarUrl && (
+                      <button
+                        onClick={handleDeleteAvatar}
+                        disabled={avatarUploading}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                      >
+                        Remove photo
+                      </button>
+                    )}
                   </div>
                 </div>
 

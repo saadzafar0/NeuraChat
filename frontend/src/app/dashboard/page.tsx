@@ -450,12 +450,22 @@ export default function DashboardPage() {
     return otherUser?.full_name || otherUser?.username || 'Unknown User';
   };
 
-  const getChatAvatar = (chat: Chat) => {
+  const getChatAvatar = (chat: Chat): { type: 'image' | 'initials'; value: string } => {
     if (chat.type === 'group') {
-      return getInitials(chat.name || 'Group');
+      return { type: 'initials', value: getInitials(chat.name || 'Group') };
     }
     const otherUser = chat.participants.find((p) => p.id !== user?.id);
-    return getInitials(otherUser?.full_name || otherUser?.username || 'U');
+    if (otherUser?.avatar_url) {
+      return { type: 'image', value: otherUser.avatar_url };
+    }
+    return { type: 'initials', value: getInitials(otherUser?.full_name || otherUser?.username || 'U') };
+  };
+
+  const renderAvatar = (avatar: { type: 'image' | 'initials'; value: string }, className?: string) => {
+    if (avatar.type === 'image') {
+      return <img src={avatar.value} alt="Avatar" className={`w-full h-full object-cover ${className || ''}`} />;
+    }
+    return avatar.value;
   };
 
   const getOtherUserNameByChatId = (chatId?: string, fallback?: string) => {
@@ -687,7 +697,7 @@ export default function DashboardPage() {
                               }
                             }
                           }}
-                          className={`w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30 ${
+                          className={`w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 shadow-lg shadow-cyan-500/30 overflow-hidden ${
                             chat.type === 'private' 
                               ? 'hover:scale-110 transition-transform cursor-pointer' 
                               : 'cursor-default'
@@ -695,7 +705,7 @@ export default function DashboardPage() {
                           disabled={chat.type !== 'private'}
                           title={chat.type === 'private' ? 'View profile' : undefined}
                         >
-                          {getChatAvatar(chat)}
+                          {renderAvatar(getChatAvatar(chat))}
                         </button>
                         {selectedChat?.id === chat.id && (
                           <div className="absolute inset-0 bg-cyan-400/20 rounded-full animate-pulse pointer-events-none"></div>
@@ -794,8 +804,8 @@ export default function DashboardPage() {
                   disabled={selectedChat.type !== 'private'}
                   title={selectedChat.type === 'private' ? 'View profile' : undefined}
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-cyan-500/30">
-                    {getChatAvatar(selectedChat)}
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-cyan-500/30 overflow-hidden">
+                    {renderAvatar(getChatAvatar(selectedChat))}
                   </div>
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 shadow-lg shadow-emerald-500/50"></div>
                 </button>

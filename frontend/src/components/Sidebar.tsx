@@ -144,8 +144,16 @@ export default function Sidebar({ isMobileOpen = false, onMobileClose }: Sidebar
         {/* Glow Ring */}
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full blur-sm opacity-0 group-hover:opacity-75 transition-opacity"></div>
         {/* Avatar */}
-        <div className="relative w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-cyan-500/30 border-2 border-gray-700/50 group-hover:border-cyan-500/50 transition-all group-hover:scale-110 duration-300">
-          {user ? getInitials(user.full_name || user.username) : 'U'}
+        <div className="relative w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-cyan-500/30 border-2 border-gray-700/50 group-hover:border-cyan-500/50 transition-all group-hover:scale-110 duration-300 overflow-hidden">
+          {user?.avatar_url ? (
+            <img 
+              src={user.avatar_url} 
+              alt="Profile" 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            user ? getInitials(user.full_name || user.username) : 'U'
+          )}
         </div>
         
         {/* Online Indicator */}
