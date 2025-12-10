@@ -173,3 +173,42 @@ create trigger on_auth_user_created
 
 ALTER TABLE notifications
 ADD COLUMN chat_id uuid REFERENCES chats(id);
+
+-- Track which one-time pre-keys have been used
+create table public.used_prekeys (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  prekey_id text not null,
+  used_by uuid references public.users(id) not null,
+  used_at timestamptz default now(),
+  unique(user_id, prekey_id)
+);
+
+create index idx_used_prekeys_user on public.used_prekeys(user_id);
+
+-- Track key rotation for security auditing
+create table public.key_rotation_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  key_type text check (key_type in ('identity', 'signed_pre_key', 'one_time_pre_keys')),
+  rotated_at timestamptz default now(),
+  reason text -- 'scheduled', 'manual', 'compromised'
+);
+
+-- Stores active encryption sessions between users
+create table public.encryption_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  contact_id uuid references public.users(id) on delete cascade not null,
+  session_state jsonb not null, -- Serialized Double Ratchet state
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(user_id, contact_id)
+);
+
+create index idx_encryption_sessions_user on public.encryption_sessions(user_id);
+create index idx_encryption_sessions_contact on public.encryption_sessions(contact_id);
+
+alter table public.encryption_sessions disable row level security;
+alter table public.used_prekeys disable row level security;
+alter table public.key_rotation_logs disable row level security;

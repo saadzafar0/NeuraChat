@@ -20,20 +20,71 @@ async function resolveUserId(usernameOrId: string): Promise<string | null> {
   return data?.id || null;
 }
 
-// Resolve chat name to chat ID
+// Resolve chat name to chat ID (handles both group names and private chats)
 async function resolveChatId(chatNameOrId: string): Promise<string | null> {
   // If it looks like a UUID, return as-is
   if (chatNameOrId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     return chatNameOrId;
   }
   
-  const { data } = await supabase
+  // First try to find by group chat name
+  const { data: groupChat } = await supabase
     .from('chats')
     .select('id')
+    .eq('type', 'group')
     .ilike('name', `%${chatNameOrId}%`)
-    .single();
+    .limit(1)
+    .maybeSingle();
   
-  return data?.id || null;
+  if (groupChat?.id) return groupChat.id;
+  
+  // If not found, try to find a private chat by participant username
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .or(`username.ilike.%${chatNameOrId}%,full_name.ilike.%${chatNameOrId}%`)
+    .limit(1)
+    .maybeSingle();
+  
+  if (user?.id) {
+    // Find private chat with this user
+    const { data: chatParticipant } = await supabase
+      .from('chat_participants')
+      .select('chat_id, chats!inner(type)')
+      .eq('user_id', user.id)
+      .eq('chats.type', 'private')
+      .limit(1)
+      .maybeSingle();
+    
+    if (chatParticipant?.chat_id) return chatParticipant.chat_id;
+  }
+  
+  return null;
+}
+
+// Find private chat between two specific users
+async function findPrivateChatBetweenUsers(userId1: string, userId2: string): Promise<string | null> {
+  // Get all private chat IDs for user1
+  const { data: user1Chats } = await supabase
+    .from('chat_participants')
+    .select('chat_id, chats!inner(type)')
+    .eq('user_id', userId1)
+    .eq('chats.type', 'private');
+  
+  if (!user1Chats || user1Chats.length === 0) return null;
+  
+  const chatIds = user1Chats.map((c: any) => c.chat_id);
+  
+  // Check if user2 is in any of these chats
+  const { data: sharedChat } = await supabase
+    .from('chat_participants')
+    .select('chat_id')
+    .eq('user_id', userId2)
+    .in('chat_id', chatIds)
+    .limit(1)
+    .maybeSingle();
+  
+  return sharedChat?.chat_id || null;
 }
 
 // Resolve multiple usernames to user IDs
@@ -109,14 +160,14 @@ export const messageSearchTool = new DynamicStructuredTool({
 // 4. Chat Summary Tool
 export const chatSummaryTool = new DynamicStructuredTool({
   name: "summarize_chat",
-  description: "Summarize the last 10 messages in a given chat. You can use the chat name or ID.",
+  description: "Summarize the last 10 messages in a given chat. For private chats, use the other person's username. For groups, use the group name.",
   schema: z.object({
-    chat_name: z.string().describe("The chat name or group name to summarize"),
+    chat_name: z.string().describe("The chat name, group name, or username (for private chats) to summarize"),
   }),
   func: async ({ chat_name }) => {
     try {
       const chatId = await resolveChatId(chat_name);
-      if (!chatId) return `Could not find a chat named "${chat_name}".`;
+      if (!chatId) return `Could not find a chat with "${chat_name}". Try using the exact username for private chats or group name.`;
 
       const { data, error } = await supabase
         .from('messages')
@@ -231,7 +282,7 @@ export const createChatTool = new DynamicStructuredTool({
 // 8. Get User's Chats Tool
 export const getUserChatsTool = new DynamicStructuredTool({
   name: "get_user_chats",
-  description: "Get all chats for a specific user by their username.",
+  description: "Get all chats for a specific user by their username. Shows group names and participant names for private chats.",
   schema: z.object({
     username: z.string().describe("The username to fetch chats for"),
   }),
@@ -240,22 +291,83 @@ export const getUserChatsTool = new DynamicStructuredTool({
       const userId = await resolveUserId(username);
       if (!userId) return `Could not find user "${username}".`;
 
+      // Get all chats the user is in
       const { data, error } = await supabase
         .from('chat_participants')
-        .select('role, chats!inner(id, type, name, created_at)')
+        .select('role, chat_id, chats!inner(id, type, name, created_at)')
         .eq('user_id', userId)
         .order('joined_at', { ascending: false });
       if (error) throw error;
       if (!data || data.length === 0) return `${username} has no chats.`;
       
-      const chats = data.map((d: any) => ({
-        name: d.chats.name || 'Private Chat',
-        type: d.chats.type,
-        role: d.role
+      // For private chats, get the other participant's name
+      const chatsWithNames = await Promise.all(data.map(async (d: any) => {
+        let displayName = d.chats.name;
+        
+        if (d.chats.type === 'private') {
+          // Get the other participant in this private chat
+          const { data: otherParticipants } = await supabase
+            .from('chat_participants')
+            .select('users!inner(username, full_name)')
+            .eq('chat_id', d.chat_id)
+            .neq('user_id', userId)
+            .limit(1);
+          
+          if (otherParticipants && otherParticipants.length > 0) {
+            const other = (otherParticipants[0] as any).users;
+            displayName = other.full_name || other.username;
+          } else {
+            displayName = 'Private Chat';
+          }
+        }
+        
+        return {
+          chatId: d.chat_id,
+          name: displayName,
+          type: d.chats.type,
+          role: d.role
+        };
       }));
-      return JSON.stringify(chats, null, 2);
+      
+      return JSON.stringify(chatsWithNames, null, 2);
     } catch (err: any) {
       return `Error fetching chats: ${err.message}`;
+    }
+  },
+});
+
+// 8b. Find Private Chat Tool (NEW)
+export const findPrivateChatTool = new DynamicStructuredTool({
+  name: "find_private_chat",
+  description: "Find an existing private chat between two users. Use this to locate a chat before sending a message.",
+  schema: z.object({
+    user1: z.string().describe("The first user's username"),
+    user2: z.string().describe("The second user's username"),
+  }),
+  func: async ({ user1, user2 }) => {
+    try {
+      const userId1 = await resolveUserId(user1);
+      const userId2 = await resolveUserId(user2);
+      
+      if (!userId1) return `Could not find user "${user1}".`;
+      if (!userId2) return `Could not find user "${user2}".`;
+      
+      const chatId = await findPrivateChatBetweenUsers(userId1, userId2);
+      
+      if (chatId) {
+        return JSON.stringify({
+          found: true,
+          chatId: chatId,
+          message: `Found private chat between ${user1} and ${user2}.`
+        });
+      } else {
+        return JSON.stringify({
+          found: false,
+          message: `No private chat exists between ${user1} and ${user2}. Use create_chat to start a new conversation.`
+        });
+      }
+    } catch (err: any) {
+      return `Error finding private chat: ${err.message}`;
     }
   },
 });
@@ -418,19 +530,51 @@ export const getUserProfileTool = new DynamicStructuredTool({
 // 14. Send Message Tool
 export const sendMessageTool = new DynamicStructuredTool({
   name: "send_message",
-  description: "Send a text message to a specific chat on behalf of a user. Use this when the user asks to send a message like 'Tell John I'll be late'.",
+  description: `Send a text message to a specific chat on behalf of a user. 
+IMPORTANT: For private chats, use the recipient's username as the chat_name (e.g., 'john' or 'John Doe').
+For group chats, use the group name.
+Examples:
+- "Tell John I'll be late" → chat_name: "John", content: "I'll be late"
+- "Message the Project Team saying hello" → chat_name: "Project Team", content: "hello"`,
   schema: z.object({
-    chat_name: z.string().describe("The chat or group name to send the message to"),
-    sender_username: z.string().describe("The username of the person sending the message"),
+    chat_name: z.string().describe("For private chats: the recipient's username or full name. For groups: the group name."),
+    sender_username: z.string().describe("The username of the person sending the message (the current user)"),
     content: z.string().describe("The message content to send"),
   }),
   func: async ({ chat_name, sender_username, content }) => {
     try {
-      const chatId = await resolveChatId(chat_name);
-      if (!chatId) return `Could not find chat "${chat_name}".`;
-
       const senderId = await resolveUserId(sender_username);
-      if (!senderId) return `Could not find user "${sender_username}".`;
+      if (!senderId) return `Could not find sender "${sender_username}". Make sure the username is correct.`;
+
+      // Try to resolve chat - this now handles both group names and private chat participants
+      let chatId = await resolveChatId(chat_name);
+      
+      // If not found, try to find/create a private chat with the target user
+      if (!chatId) {
+        const targetUserId = await resolveUserId(chat_name);
+        if (targetUserId) {
+          // Check if private chat exists between sender and target
+          chatId = await findPrivateChatBetweenUsers(senderId, targetUserId);
+          
+          if (!chatId) {
+            return `No existing chat found with "${chat_name}". You may need to create a new private chat first using the create_chat tool.`;
+          }
+        } else {
+          return `Could not find chat or user "${chat_name}". Please check the spelling or use search_users to find the correct username.`;
+        }
+      }
+
+      // Verify sender is a participant of this chat
+      const { data: participant } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('chat_id', chatId)
+        .eq('user_id', senderId)
+        .maybeSingle();
+      
+      if (!participant) {
+        return `"${sender_username}" is not a participant of this chat. Cannot send message.`;
+      }
 
       const { error } = await supabase
         .from('messages')
@@ -442,7 +586,7 @@ export const sendMessageTool = new DynamicStructuredTool({
           status: 'sent'
         });
       if (error) throw error;
-      return `Message sent to "${chat_name}" successfully.`;
+      return `✅ Message sent to "${chat_name}" successfully: "${content}"`;
     } catch (err: any) {
       return `Error sending message: ${err.message}`;
     }
@@ -666,26 +810,29 @@ export const getChatMediaTool = new DynamicStructuredTool({
   name: "get_chat_media",
   description: "List all media files (images, videos, documents) shared in a specific chat.",
   schema: z.object({
-    chat_name: z.string().describe("The chat name to get media from"),
+    chat_name: z.string().describe("The chat name or participant username to get media from"),
   }),
   func: async ({ chat_name }) => {
     try {
       const chatId = await resolveChatId(chat_name);
-      if (!chatId) return `Could not find chat "${chat_name}".`;
+      if (!chatId) return `Could not find chat "${chat_name}". Try using the username of the person in a private chat.`;
 
+      // Query media_files directly by chat_id (per schema)
       const { data, error } = await supabase
         .from('media_files')
-        .select('file_url, file_type, file_size, uploaded_at, messages!inner(chat_id)')
-        .eq('messages.chat_id', chatId)
+        .select('file_name, file_type, file_size, storage_url, mime_type, uploaded_at')
+        .eq('chat_id', chatId)
         .order('uploaded_at', { ascending: false })
         .limit(20);
       if (error) throw error;
       if (!data || data.length === 0) return `No media files found in "${chat_name}".`;
 
       const media = data.map((m: any) => ({
-        url: m.file_url,
+        name: m.file_name,
         type: m.file_type,
-        size: m.file_size,
+        mimeType: m.mime_type,
+        size: m.file_size ? `${(m.file_size / 1024).toFixed(1)} KB` : 'Unknown',
+        url: m.storage_url,
         uploaded: m.uploaded_at
       }));
       return JSON.stringify(media, null, 2);
@@ -707,14 +854,22 @@ export const searchMediaTool = new DynamicStructuredTool({
     try {
       const { data, error } = await supabase
         .from('media_files')
-        .select('file_url, file_type, file_size, uploaded_at')
+        .select('file_name, storage_url, file_type, file_size, mime_type, uploaded_at')
         .ilike('file_type', `%${file_type}%`)
         .order('uploaded_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
       if (!data || data.length === 0) return `No ${file_type} files found.`;
 
-      return JSON.stringify(data, null, 2);
+      const media = data.map((m: any) => ({
+        name: m.file_name,
+        type: m.file_type,
+        mimeType: m.mime_type,
+        size: m.file_size ? `${(m.file_size / 1024).toFixed(1)} KB` : 'Unknown',
+        url: m.storage_url,
+        uploaded: m.uploaded_at
+      }));
+      return JSON.stringify(media, null, 2);
     } catch (err: any) {
       return `Error searching media: ${err.message}`;
     }
@@ -899,6 +1054,7 @@ export const tools = [
   userStatusUpdateTool,
   createChatTool,
   getUserChatsTool,
+  findPrivateChatTool, // NEW: Find private chats between users
   getChatParticipantsTool,
   getAISessionsTool,
   getCallHistoryTool,
@@ -936,6 +1092,7 @@ export const toolsByName: Record<string, DynamicStructuredTool> = {
   update_status_message: userStatusUpdateTool,
   create_chat: createChatTool,
   get_user_chats: getUserChatsTool,
+  find_private_chat: findPrivateChatTool, // NEW
   get_chat_participants: getChatParticipantsTool,
   get_ai_sessions: getAISessionsTool,
   get_call_history: getCallHistoryTool,
