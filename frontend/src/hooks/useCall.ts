@@ -330,7 +330,7 @@ export const useCall = () => {
         const callId = created?.call?.id || created?.callId || `call_${Date.now()}`;
         const channelName = `chat_${chatId}`;
         callSessionStore.update({
-          currentCall: { callId, chatId, channelName, toUserId, isCaller: true, callType },
+          currentCall: { callId, chatId, channelName, toUserId, toUserName: displayName, isCaller: true, callType },
           callState: 'calling',
           isCallUiMinimized: false,
         });

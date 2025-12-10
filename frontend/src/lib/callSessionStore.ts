@@ -7,6 +7,7 @@ type CurrentCall = {
   chatId: string;
   channelName: string;
   toUserId?: string;
+  toUserName?: string;
   fromUserId?: string;
   fromUserName?: string;
   fromUserAvatar?: string | null;

@@ -1386,7 +1386,7 @@ export default function DashboardPage() {
       {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && !isCallUiMinimized && (
         <InCallUI
           isOpen={true}
-          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
+          otherUserName={currentCall.isCaller ? (currentCall.toUserName || getOtherUserNameByChatId(currentCall.chatId)) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           isMuted={isMuted}
           isSpeakerMuted={isSpeakerMuted}
           callStartedAt={callStartedAt}
@@ -1403,7 +1403,7 @@ export default function DashboardPage() {
       {callState === 'in-call' && currentCall && currentCall.callType === 'video' && !isCallUiMinimized && (
         <InCallVideoUI
           isOpen={true}
-          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
+          otherUserName={currentCall.isCaller ? (currentCall.toUserName || getOtherUserNameByChatId(currentCall.chatId)) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
           isSpeakerMuted={isSpeakerMuted}
@@ -1423,7 +1423,7 @@ export default function DashboardPage() {
       {/* Minimized call bar */}
       {callState === 'in-call' && currentCall && isCallUiMinimized && (
         <CallFloatingBar
-          otherUserName={currentCall.isCaller ? getOtherUserNameByChatId(currentCall.chatId) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
+          otherUserName={currentCall.isCaller ? (currentCall.toUserName || getOtherUserNameByChatId(currentCall.chatId)) : (currentCall.fromUserName || getOtherUserNameByChatId(currentCall.chatId))}
           callType={currentCall.callType || 'audio'}
           callStartedAt={callStartedAt}
           isMuted={isMuted}
@@ -1436,7 +1436,7 @@ export default function DashboardPage() {
       {/* Outgoing call UI */}
       {callState === 'calling' && currentCall?.isCaller && (
         <OutgoingCallUI
-          otherUserName={getOtherUserNameByChatId(currentCall.chatId)}
+          otherUserName={currentCall.toUserName || getOtherUserNameByChatId(currentCall.chatId)}
           status="calling"
           onCancel={endCall}
           onReturnToChat={() => {
