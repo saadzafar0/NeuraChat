@@ -41,6 +41,7 @@ interface Chat {
     content: string;
     created_at: string;
     sender_id: string;
+    type: string;
   };
   participants: Array<{
     id: string;
@@ -242,6 +243,7 @@ export default function DashboardPage() {
                     content: message.content,
                     created_at: message.created_at,
                     sender_id: message.sender_id,
+                    type: message.type,
                   },
                 }
               : chat
