@@ -187,7 +187,7 @@ class SocketClient {
   }
 
   // Call event emitters
-  callInitiate(data: { chatId: string; toUserId: string; callId: string }) {
+  callInitiate(data: { chatId: string; toUserId: string; callId: string; callType?: 'audio' | 'video' }) {
     if (this.socket) {
       this.socket.emit('call-initiate', data);
     }

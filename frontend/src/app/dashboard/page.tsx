@@ -11,6 +11,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import AIMessageAssistant from '@/components/AIMessageAssistant';
 import { IncomingCallModal } from '@/components/incoming-call-modal';
 import { InCallUI } from '@/components/in-call-ui';
+import { InCallVideoUI } from '@/components/in-call-video-ui';
 import { useCall } from '@/hooks/useCall';
 import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 import { useRouter } from 'next/navigation';
@@ -85,7 +86,8 @@ export default function DashboardPage() {
   const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
 
   // Call functionality
-  const { callState, currentCall, isMuted, isSpeakerMuted, callStartedAt, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleSpeaker, resetCallSession } = useCall();
+  const { callState, currentCall, isMuted, isCameraOff, isSpeakerMuted, callStartedAt, remoteVideoTracks, initiateCall, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, toggleSpeaker, resetCallSession, handleJoin } = useCall();
+  const localVideoRef = useRef<HTMLVideoElement>(null);
 
   const handleApplyAIEnhancement = (enhancedMessage: string) => {
     setMessageInput(enhancedMessage);
@@ -709,30 +711,48 @@ export default function DashboardPage() {
                     {selectedChat.participants.length} {selectedChat.participants.length === 1 ? 'participant' : 'participants'}
                   </p>
                 </div>
-                {/* Call button - only show for private chats with 2 participants */}
-                {selectedChat.type === 'private' && selectedChat.participants.length === 2 && (
-                  <button
-                    onClick={() => {
-                      const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
-                      if (otherUser) {
-                        const otherUserName =
-                          otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
-                        initiateCall(selectedChat.id, otherUser.id, otherUserName);
-                      }
-                    }}
-                    disabled={callState !== 'idle'}
-                    className={`relative group ${
-                      callState !== 'idle' ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    title="Start audio call"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </div>
-                  </button>
+                {/* Call buttons - only show for private chats with 2 participants */}
+                {selectedChat.type === 'private' && selectedChat.participants.length === 2 && callState === 'idle' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
+                        if (otherUser) {
+                          const otherUserName =
+                            otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
+                          initiateCall(selectedChat.id, otherUser.id, otherUserName, 'audio');
+                        }
+                      }}
+                      className="relative group"
+                      title="Start audio call"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-blue-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const otherUser = selectedChat.participants.find((p) => p.id !== user?.id);
+                        if (otherUser) {
+                          const otherUserName =
+                            otherUser.full_name || otherUser.username || selectedChat.name || 'Unknown';
+                          initiateCall(selectedChat.id, otherUser.id, otherUserName, 'video');
+                        }
+                      }}
+                      className="relative group"
+                      title="Start video call"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="relative bg-gradient-to-r from-purple-500 to-pink-600 hover:from-pink-500 hover:to-purple-600 p-2 rounded-lg transition-all duration-300 text-white shadow-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    </button>
+                  </div>
                 )}
                 {/* End call button - show when in call */}
                 {callState === 'in-call' && (
@@ -1286,6 +1306,7 @@ export default function DashboardPage() {
                 return 'Unknown Caller';
               })()
             }
+            callType={currentCall.callType || 'audio'}
             onAccept={acceptCall}
             onReject={rejectCall}
             isProcessing={false}
@@ -1293,8 +1314,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* In-Call UI */}
-      {callState === 'in-call' && currentCall && (
+      {/* In-Call UI - Audio */}
+      {callState === 'in-call' && currentCall && currentCall.callType === 'audio' && (
         <InCallUI
           isOpen={true}
           otherUserName={
@@ -1317,6 +1338,39 @@ export default function DashboardPage() {
           callStartedAt={callStartedAt}
           audioTrack={currentCall.audioTrack}
           onToggleMute={toggleMute}
+          onToggleSpeaker={toggleSpeaker}
+          onEndCall={endCall}
+        />
+      )}
+
+      {/* In-Call UI - Video */}
+      {callState === 'in-call' && currentCall && currentCall.callType === 'video' && (
+        <InCallVideoUI
+          isOpen={true}
+          otherUserName={
+            (() => {
+              // Find the other user's name
+              const chatWithOtherUser = chats.find((chat) => chat.id === currentCall.chatId);
+              if (chatWithOtherUser?.participants) {
+                const otherUser = chatWithOtherUser.participants.find(
+                  (p) => p.id !== user?.id
+                );
+                if (otherUser) {
+                  return otherUser.full_name || otherUser.username || 'Unknown';
+                }
+              }
+              return 'Unknown User';
+            })()
+          }
+          isMuted={isMuted}
+          isCameraOff={isCameraOff}
+          isSpeakerMuted={isSpeakerMuted}
+          callStartedAt={callStartedAt}
+          audioTrack={currentCall.audioTrack}
+          videoTrack={currentCall.videoTrack}
+          remoteVideoTracks={remoteVideoTracks}
+          onToggleMute={toggleMute}
+          onToggleCamera={toggleCamera}
           onToggleSpeaker={toggleSpeaker}
           onEndCall={endCall}
         />
