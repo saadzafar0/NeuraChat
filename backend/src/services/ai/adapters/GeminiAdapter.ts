@@ -86,7 +86,7 @@ export class GeminiAdapter implements AIProvider {
         .map((m: any) => m.name.replace('models/', '')); 
     } catch (error) {
       console.warn('Failed to fetch Gemini models, returning default.');
-      return ['gemini-2.0-flash', 'gemini-1.5-flash'];
+      return ['gemini-2.5-flash', 'gemini-1.5-flash'];
     }
   }
 }

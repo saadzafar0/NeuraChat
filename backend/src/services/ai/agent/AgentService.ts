@@ -19,7 +19,7 @@ export class AgentService {
     // For other providers, we fall back to Gemini
     if (provider === 'gemini' || !provider) {
       const baseLlm = new ChatGoogleGenerativeAI({
-        model: model || "gemini-2.0-flash",
+        model: model || "gemini-2.5-flash",
         maxOutputTokens: 2048,
         apiKey: process.env.GEMINI_API_KEY,
         temperature: 0.3,
