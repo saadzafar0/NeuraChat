@@ -165,65 +165,76 @@ export async function joinAudioCall({
     
     const joinedUid = await finalClient.join(appId, channelName, token, uid || null);
 
-    // Subscribe to remote audio and play automatically
-    finalClient.on('user-published', async (user: any, mediaType: string) => {
+    // Helper function to safely subscribe with retry logic (audio call)
+    const safeSubscribeAudio = async (user: any, mediaType: string, retryCount = 0): Promise<boolean> => {
+      const maxRetries = 2;
+      const retryDelay = 300;
+      
       try {
-        // Check if user object is valid before subscribing
-        if (!user || typeof user !== 'object') {
-          console.warn('Invalid user object in user-published event:', user);
-          return;
+        // Validate user object
+        if (!user || typeof user !== 'object' || !user.uid) {
+          console.warn('Invalid user object for subscription:', user);
+          return false;
         }
         
-        // Check if stream still exists (user may have left between event and subscription)
-        if (!user.hasAudio && !user.hasVideo) {
-          console.warn('User has no published tracks, skipping subscribe');
-          return;
-        }
-        
-        // For audio, check if user still has audio published
-        if (mediaType === 'audio' && !user.hasAudio) {
-          console.warn('User no longer has audio published, skipping subscribe');
-          return;
-        }
-        
-        // Check connection state before subscribing
+        // Check connection state
         if (finalClient.connectionState !== 'CONNECTED') {
-          console.warn('Cannot subscribe - client not connected. State:', finalClient.connectionState);
-          // Wait a bit and retry if connecting
-          if (finalClient.connectionState === 'CONNECTING') {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (finalClient.connectionState !== 'CONNECTED') {
-              console.warn('Still not connected after wait, skipping subscribe');
-              return;
-            }
-          } else {
-            return;
+          if (finalClient.connectionState === 'CONNECTING' && retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return safeSubscribeAudio(user, mediaType, retryCount + 1);
           }
+          console.warn('Cannot subscribe - client not connected. State:', finalClient.connectionState);
+          return false;
         }
         
-        // Double-check user is still in the channel before subscribing
+        // Verify user is still in channel before subscribing
         const remoteUsers = finalClient.remoteUsers || [];
-        const userStillExists = remoteUsers.some((u: any) => u.uid === user.uid);
-        if (!userStillExists) {
-          console.warn('User no longer in channel, skipping subscribe');
-          return;
+        const userInChannel = remoteUsers.find((u: any) => u.uid === user.uid);
+        if (!userInChannel) {
+          console.warn(`User ${user.uid} no longer in channel, skipping subscribe`);
+          return false;
+        }
+        
+        // Verify the specific media type is still published
+        if (mediaType === 'audio' && !userInChannel.hasAudio) {
+          console.warn(`User ${user.uid} no longer has audio published`);
+          return false;
         }
         
         await finalClient.subscribe(user, mediaType);
-        if (mediaType === 'audio' && user.audioTrack) {
-          user.audioTrack.play();
-          if (onRemoteAudio) onRemoteAudio(user.audioTrack);
-        }
+        return true;
       } catch (err: any) {
-        // Handle specific subscription errors gracefully
-        if (err?.code === 2021 || err?.data?.error_code === 2021 || err?.message?.includes('2021') || err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID' || err?.message?.includes('no such stream')) {
-          // Stream no longer exists (user left/unpublished before subscription completed)
-          console.warn('Cannot subscribe - stream no longer exists (user may have left/unpublished)');
-        } else if (err?.code === 'INVALID_OPERATION' && err?.message?.includes('disconnected')) {
-          console.warn('Cannot subscribe - peer connection disconnected. This may be temporary.');
-        } else {
-          console.warn('Failed to subscribe to remote user (non-fatal):', err?.message || err);
+        const isStreamGone = err?.code === 2021 || err?.data?.error_code === 2021 || 
+          err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID' || err?.message?.includes('no such stream');
+        
+        if (isStreamGone) {
+          console.warn(`Stream ${mediaType} for user ${user.uid} no longer exists (normal during mute/reconnect)`);
+          return false;
         }
+        
+        // For other errors, retry if we haven't exceeded max retries
+        if (retryCount < maxRetries) {
+          console.warn(`Subscribe attempt ${retryCount + 1} failed, retrying...`, err?.message);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return safeSubscribeAudio(user, mediaType, retryCount + 1);
+        }
+        
+        console.warn('Failed to subscribe after retries (non-fatal):', err?.message || err);
+        return false;
+      }
+    };
+
+    // Subscribe to remote audio and play automatically
+    finalClient.on('user-published', async (user: any, mediaType: string) => {
+      // Small delay to let the stream stabilize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const success = await safeSubscribeAudio(user, mediaType);
+      if (!success) return;
+      
+      if (mediaType === 'audio' && user.audioTrack) {
+        user.audioTrack.play();
+        if (onRemoteAudio) onRemoteAudio(user.audioTrack);
       }
     });
 
@@ -374,48 +385,84 @@ export async function joinVideoCall({
     const finalClient = await getClient();
     const joinedUid = await finalClient.join(appId, channelName, token, uid || null);
 
-    // Subscribe to remote media
-    finalClient.on('user-published', async (user: any, mediaType: string) => {
+    // Helper function to safely subscribe with retry logic
+    const safeSubscribe = async (user: any, mediaType: string, retryCount = 0): Promise<boolean> => {
+      const maxRetries = 2;
+      const retryDelay = 300;
+      
       try {
-        // Check if user object is valid before subscribing
-        if (!user || typeof user !== 'object') {
-          console.warn('Invalid user object in user-published event:', user);
-          return;
+        // Validate user object
+        if (!user || typeof user !== 'object' || !user.uid) {
+          console.warn('Invalid user object for subscription:', user);
+          return false;
         }
         
-        // Check connection state before subscribing
+        // Check connection state
         if (finalClient.connectionState !== 'CONNECTED') {
-          console.warn('Cannot subscribe - client not connected. State:', finalClient.connectionState);
-          // Wait a bit and retry if connecting
-          if (finalClient.connectionState === 'CONNECTING') {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (finalClient.connectionState !== 'CONNECTED') {
-              console.warn('Still not connected after wait, skipping subscribe');
-              return;
-            }
-          } else {
-            return;
+          if (finalClient.connectionState === 'CONNECTING' && retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return safeSubscribe(user, mediaType, retryCount + 1);
           }
+          console.warn('Cannot subscribe - client not connected. State:', finalClient.connectionState);
+          return false;
+        }
+        
+        // Verify user is still in channel before subscribing
+        const remoteUsers = finalClient.remoteUsers || [];
+        const userInChannel = remoteUsers.find((u: any) => u.uid === user.uid);
+        if (!userInChannel) {
+          console.warn(`User ${user.uid} no longer in channel, skipping subscribe`);
+          return false;
+        }
+        
+        // Verify the specific media type is still published
+        if (mediaType === 'audio' && !userInChannel.hasAudio) {
+          console.warn(`User ${user.uid} no longer has audio published`);
+          return false;
+        }
+        if (mediaType === 'video' && !userInChannel.hasVideo) {
+          console.warn(`User ${user.uid} no longer has video published`);
+          return false;
         }
         
         await finalClient.subscribe(user, mediaType);
-        if (mediaType === 'video' && user.videoTrack) {
-          if (onRemoteVideo) onRemoteVideo(user.videoTrack, user.uid);
-        }
-        if (mediaType === 'audio' && user.audioTrack) {
-          user.audioTrack.play();
-          if (onRemoteAudio) onRemoteAudio(user.audioTrack);
-        }
+        return true;
       } catch (err: any) {
-        // Handle specific subscription errors gracefully
-        if (err?.code === 2021 || err?.data?.error_code === 2021 || err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID') {
-          // Stream no longer exists (user left/unpublished before subscription completed)
-          console.warn('Cannot subscribe - stream no longer exists (user may have left/unpublished)');
-        } else if (err?.code === 'INVALID_OPERATION' && err?.message?.includes('disconnected')) {
-          console.warn('Cannot subscribe - peer connection disconnected. This may be temporary.');
-        } else {
-          console.warn('Failed to subscribe to remote user (non-fatal):', err?.message || err);
+        const isStreamGone = err?.code === 2021 || err?.data?.error_code === 2021 || 
+          err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID' || err?.message?.includes('no such stream');
+        
+        if (isStreamGone) {
+          // Stream disappeared - this is expected during mute/unmute or brief disconnects
+          console.warn(`Stream ${mediaType} for user ${user.uid} no longer exists (normal during mute/reconnect)`);
+          return false;
         }
+        
+        // For other errors, retry if we haven't exceeded max retries
+        if (retryCount < maxRetries) {
+          console.warn(`Subscribe attempt ${retryCount + 1} failed, retrying...`, err?.message);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return safeSubscribe(user, mediaType, retryCount + 1);
+        }
+        
+        console.warn('Failed to subscribe after retries (non-fatal):', err?.message || err);
+        return false;
+      }
+    };
+
+    // Subscribe to remote media
+    finalClient.on('user-published', async (user: any, mediaType: string) => {
+      // Small delay to let the stream stabilize (helps with race conditions)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const success = await safeSubscribe(user, mediaType);
+      if (!success) return;
+      
+      if (mediaType === 'video' && user.videoTrack) {
+        if (onRemoteVideo) onRemoteVideo(user.videoTrack, user.uid);
+      }
+      if (mediaType === 'audio' && user.audioTrack) {
+        user.audioTrack.play();
+        if (onRemoteAudio) onRemoteAudio(user.audioTrack);
       }
     });
 

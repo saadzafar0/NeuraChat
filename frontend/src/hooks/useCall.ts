@@ -217,8 +217,18 @@ export const useCall = () => {
                 callSessionStore.update({
                   remoteVideoTracks: new Map(remoteVideoTracksRef.current),
                 });
+                // Add a grace period before ending call - user may be temporarily reconnecting
+                // Only end call if still no remote tracks after delay
                 if (remoteVideoTracksRef.current.size === 0 && remoteTracksRef.current.length === 0) {
-                  await resetCall();
+                  console.log('[Call] Remote user left, waiting for potential reconnection...');
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  // Re-check after delay - user may have reconnected
+                  if (remoteVideoTracksRef.current.size === 0 && remoteTracksRef.current.length === 0) {
+                    console.log('[Call] No remote participants after grace period, ending call');
+                    await resetCall();
+                  } else {
+                    console.log('[Call] Remote participant reconnected, keeping call active');
+                  }
                 }
               },
             });
@@ -296,7 +306,16 @@ export const useCall = () => {
               track.setVolume?.(isSpeakerMuted ? 0 : 100);
             },
             onUserLeft: async () => {
-              await resetCall();
+              // Add a grace period before ending call - user may be temporarily reconnecting
+              console.log('[Call] Remote user left audio call, waiting for potential reconnection...');
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              // Re-check after delay - only end if still no remote audio
+              if (remoteTracksRef.current.length === 0) {
+                console.log('[Call] No remote audio participants after grace period, ending call');
+                await resetCall();
+              } else {
+                console.log('[Call] Remote participant reconnected, keeping call active');
+              }
             },
           });
           const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
