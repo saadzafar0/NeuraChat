@@ -1,11 +1,17 @@
 // app/calls/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar from '@/components/Sidebar';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useCall } from '@/hooks/useCall';
+import { IncomingCallModal } from '@/components/incoming-call-modal';
+import { InCallUI } from '@/components/in-call-ui';
+import { InCallVideoUI } from '@/components/in-call-video-ui';
+import { CallFloatingBar } from '@/components/call-floating-bar';
+import { OutgoingCallUI } from '@/components/outgoing-call-ui';
 
 interface CallParticipant {
   userId: string;
@@ -48,6 +54,30 @@ export default function CallsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Call functionality
+  const {
+    callState,
+    currentCall,
+    isMuted,
+    isCameraOff,
+    isSpeakerMuted,
+    callStartedAt,
+    remoteVideoTracks,
+    isCallUiMinimized,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMute,
+    toggleCamera,
+    toggleSpeaker,
+    resetCallSession,
+    handleJoin,
+    minimizeCallUi,
+    restoreCallUi,
+  } = useCall();
 
   useEffect(() => {
     const fetchCallLogs = async () => {
@@ -65,6 +95,23 @@ export default function CallsPage() {
 
     fetchCallLogs();
   }, []);
+
+  // Handle call back / video call button click
+  const handleCallBack = (call: CallLog) => {
+    if (!user || callState !== 'idle') return;
+    
+    // Get the other participant (the person to call)
+    const otherParticipant = call.participants.find(p => p.userId !== user.id);
+    if (!otherParticipant) {
+      console.error('No other participant found for callback');
+      return;
+    }
+
+    const displayName = otherParticipant.user.full_name || otherParticipant.user.username;
+    const callType = call.type; // Use the same call type (audio/video) as the original call
+    
+    initiateCall(call.chatId, otherParticipant.userId, displayName, callType);
+  };
 
   // Format duration from seconds to mm:ss
   const formatDuration = (seconds: number | null | undefined): string => {
@@ -300,7 +347,11 @@ export default function CallsPage() {
 
                       <div className="text-right relative z-10 flex-shrink-0 ml-2">
                         <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">{time}</p>
-                        <button className="relative group/btn">
+                        <button 
+                          onClick={() => handleCallBack(call)}
+                          disabled={callState !== 'idle'}
+                          className="relative group/btn disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg blur opacity-0 group-hover/btn:opacity-75 transition-opacity"></div>
                           <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500 hover:to-blue-600 text-cyan-400 hover:text-white font-medium py-1.5 px-2.5 sm:py-2 sm:px-4 rounded-lg transition-all duration-300 border border-cyan-500/30 hover:border-transparent text-xs sm:text-sm">
                             <span className="hidden sm:inline">{call.type === 'video' ? 'Video call' : 'Call back'}</span>
@@ -321,6 +372,83 @@ export default function CallsPage() {
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/5 rounded-full blur-2xl pointer-events-none"></div>
           </div>
         </div>
+
+        {/* Call UI Components */}
+        {callState === 'ringing' && currentCall && !currentCall.isCaller && (
+          <IncomingCallModal
+            isOpen={true}
+            callerName={currentCall.fromUserName || 'Unknown Caller'}
+            callType={currentCall.callType || 'audio'}
+            onAccept={acceptCall}
+            onReject={rejectCall}
+            isProcessing={false}
+          />
+        )}
+
+        {callState === 'in-call' && currentCall && !isCallUiMinimized && currentCall.callType === 'audio' && (
+          <InCallUI
+            isOpen={true}
+            otherUserName={currentCall.isCaller ? (currentCall.toUserName || 'Unknown') : (currentCall.fromUserName || 'Unknown')}
+            isMuted={isMuted}
+            isSpeakerMuted={isSpeakerMuted}
+            callStartedAt={callStartedAt}
+            onToggleMute={toggleMute}
+            onToggleSpeaker={toggleSpeaker}
+            onEndCall={endCall}
+            onMinimize={minimizeCallUi}
+            onClose={endCall}
+          />
+        )}
+
+        {callState === 'in-call' && currentCall && !isCallUiMinimized && currentCall.callType === 'video' && (
+          <InCallVideoUI
+            isOpen={true}
+            otherUserName={currentCall.isCaller ? (currentCall.toUserName || 'Unknown') : (currentCall.fromUserName || 'Unknown')}
+            isMuted={isMuted}
+            isCameraOff={isCameraOff}
+            isSpeakerMuted={isSpeakerMuted}
+            callStartedAt={callStartedAt}
+            remoteVideoTracks={remoteVideoTracks}
+            onToggleMute={toggleMute}
+            onToggleCamera={toggleCamera}
+            onToggleSpeaker={toggleSpeaker}
+            onEndCall={endCall}
+            onMinimize={minimizeCallUi}
+            onClose={endCall}
+          />
+        )}
+
+        {callState === 'in-call' && currentCall && isCallUiMinimized && (
+          <CallFloatingBar
+            otherUserName={currentCall.isCaller ? (currentCall.toUserName || 'Unknown') : (currentCall.fromUserName || 'Unknown')}
+            callType={currentCall.callType || 'audio'}
+            callStartedAt={callStartedAt}
+            isMuted={isMuted}
+            isSpeakerMuted={isSpeakerMuted}
+            onResume={restoreCallUi}
+            onEnd={endCall}
+          />
+        )}
+
+        {callState === 'calling' && currentCall && currentCall.isCaller && (
+          <OutgoingCallUI
+            otherUserName={currentCall.toUserName || 'Unknown'}
+            status="calling"
+            onCancel={endCall}
+            onReturnToChat={() => {}}
+            onReturnToDashboard={() => {}}
+          />
+        )}
+
+        {callState === 'rejected' && currentCall && currentCall.isCaller && (
+          <OutgoingCallUI
+            otherUserName={currentCall.toUserName || 'Unknown'}
+            status="rejected"
+            onCancel={resetCallSession}
+            onReturnToChat={() => resetCallSession()}
+            onReturnToDashboard={() => resetCallSession()}
+          />
+        )}
       </div>
     </AuthGuard>
   );

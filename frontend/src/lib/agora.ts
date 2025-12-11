@@ -174,6 +174,18 @@ export async function joinAudioCall({
           return;
         }
         
+        // Check if stream still exists (user may have left between event and subscription)
+        if (!user.hasAudio && !user.hasVideo) {
+          console.warn('User has no published tracks, skipping subscribe');
+          return;
+        }
+        
+        // For audio, check if user still has audio published
+        if (mediaType === 'audio' && !user.hasAudio) {
+          console.warn('User no longer has audio published, skipping subscribe');
+          return;
+        }
+        
         // Check connection state before subscribing
         if (finalClient.connectionState !== 'CONNECTED') {
           console.warn('Cannot subscribe - client not connected. State:', finalClient.connectionState);
@@ -189,6 +201,14 @@ export async function joinAudioCall({
           }
         }
         
+        // Double-check user is still in the channel before subscribing
+        const remoteUsers = finalClient.remoteUsers || [];
+        const userStillExists = remoteUsers.some((u: any) => u.uid === user.uid);
+        if (!userStillExists) {
+          console.warn('User no longer in channel, skipping subscribe');
+          return;
+        }
+        
         await finalClient.subscribe(user, mediaType);
         if (mediaType === 'audio' && user.audioTrack) {
           user.audioTrack.play();
@@ -196,7 +216,7 @@ export async function joinAudioCall({
         }
       } catch (err: any) {
         // Handle specific subscription errors gracefully
-        if (err?.code === 2021 || err?.data?.error_code === 2021 || err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID') {
+        if (err?.code === 2021 || err?.data?.error_code === 2021 || err?.message?.includes('2021') || err?.desc === 'ERR_SUBSCRIBE_REQUEST_INVALID' || err?.message?.includes('no such stream')) {
           // Stream no longer exists (user left/unpublished before subscription completed)
           console.warn('Cannot subscribe - stream no longer exists (user may have left/unpublished)');
         } else if (err?.code === 'INVALID_OPERATION' && err?.message?.includes('disconnected')) {

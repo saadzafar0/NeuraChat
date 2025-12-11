@@ -14,8 +14,10 @@ type CurrentCall = {
   chatId: string;
   channelName: string;
   toUserId?: string;
+  toUserName?: string;
   fromUserId?: string;
-  displayName?: string;
+  fromUserName?: string;
+  fromUserAvatar?: string | null;
   isCaller: boolean;
   callType?: 'audio' | 'video';
   audioTrack?: any;
@@ -121,10 +123,10 @@ export const useCall = () => {
             callId: payload.callId,
             chatId: payload.chatId || currentCall.chatId,
             channelName: payload.channelName,
-            toUserId: payload.toUserId,
-            fromUserId: payload.fromUserId,
+            toUserId: payload.toUserId || currentCall.toUserId,
+            fromUserId: payload.fromUserId || currentCall.fromUserId,
             isCaller: true,
-            callType: payload.callType || 'audio',
+            callType: payload.callType || currentCall.callType || 'audio',
           } : {
             callId: payload.callId,
             chatId: payload.chatId || '',
@@ -140,7 +142,7 @@ export const useCall = () => {
             callState: 'in-call',
             callStartedAt: startedAt,
           });
-          handleJoin(payload.callId, payload.channelName, payload.callType || 'audio');
+          handleJoin(payload.callId, payload.channelName, payload.callType || currentCall?.callType || 'audio');
         }
         if (type === 'call-reject') {
           if (timeoutRef.current) {
@@ -244,6 +246,22 @@ export const useCall = () => {
             uid = joinRes.uid;
           }
           const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
+          
+          // Fallback call state - preserve important fields from latestState
+          const fallbackCall = {
+            callId, 
+            chatId: joinRes.chatId || latestState.currentCall?.chatId || '', 
+            channelName, 
+            isCaller: latestState.currentCall?.isCaller ?? false, 
+            toUserName: latestState.currentCall?.toUserName,
+            fromUserName: latestState.currentCall?.fromUserName,
+            toUserId: latestState.currentCall?.toUserId,
+            fromUserId: latestState.currentCall?.fromUserId,
+            callType: 'video' as const, 
+            audioTrack, 
+            videoTrack, 
+            uid 
+          };
 
           callSessionStore.update({
             currentCall: existingCall
@@ -257,11 +275,10 @@ export const useCall = () => {
                   chatId:
                     existingCall.chatId ||
                     latestState.currentCall?.chatId ||
-                    currentCall?.chatId ||
                     joinRes.chatId ||
                     '',
                 }
-              : { callId, chatId: joinRes.chatId || '', channelName, isCaller: false, callType: 'video', audioTrack, videoTrack, uid },
+              : fallbackCall,
             callState: 'in-call',
             callStartedAt: nextCallStartedAt,
             remoteTracks: remoteTracksRef.current,
@@ -283,6 +300,21 @@ export const useCall = () => {
             },
           });
           const nextCallStartedAt = latestState.callStartedAt ?? callStartedAt ?? Date.now();
+          
+          // Fallback call state - preserve important fields from latestState
+          const fallbackAudioCall = {
+            callId, 
+            chatId: joinRes.chatId || latestState.currentCall?.chatId || '', 
+            channelName, 
+            isCaller: latestState.currentCall?.isCaller ?? false, 
+            toUserName: latestState.currentCall?.toUserName,
+            fromUserName: latestState.currentCall?.fromUserName,
+            toUserId: latestState.currentCall?.toUserId,
+            fromUserId: latestState.currentCall?.fromUserId,
+            callType: 'audio' as const, 
+            audioTrack, 
+            uid 
+          };
 
           callSessionStore.update({
             currentCall: existingCall
@@ -295,11 +327,10 @@ export const useCall = () => {
                   chatId:
                     existingCall.chatId ||
                     latestState.currentCall?.chatId ||
-                    currentCall?.chatId ||
                     joinRes.chatId ||
                     '',
                 }
-              : { callId, chatId: joinRes.chatId || '', channelName, isCaller: false, callType: 'audio', audioTrack, uid },
+              : fallbackAudioCall,
             callState: 'in-call',
             callStartedAt: nextCallStartedAt,
             remoteTracks: remoteTracksRef.current,
@@ -519,22 +550,32 @@ export const useCall = () => {
       });
 
       socketClient.onCallAccepted(({ callId, channelName, callerId, callType }: any) => {
+        // Preserve existing call state (including toUserName) when call is accepted
+        const existingCall = callSessionStore.getState().currentCall;
+        console.log('[Call] onCallAccepted - existingCall:', existingCall);
+        console.log('[Call] onCallAccepted - toUserName should be:', existingCall?.toUserName);
+        
+        const updatedCall = {
+          ...existingCall,
+          callId,
+          chatId: existingCall?.chatId || '',
+          channelName,
+          toUserId: existingCall?.toUserId || callerId,
+          toUserName: existingCall?.toUserName, // Explicitly preserve toUserName
+          isCaller: true,
+          callType: callType || existingCall?.callType || 'audio',
+        };
+        console.log('[Call] onCallAccepted - updatedCall:', updatedCall);
+        
         callSessionStore.update({
-          currentCall: {
-            callId,
-            chatId: '',
-            channelName,
-            toUserId: callerId,
-            isCaller: true,
-            callType: callType || 'audio',
-          },
+          currentCall: updatedCall,
           callState: 'calling',
           isCallUiMinimized: false,
         });
         // Add a small delay to avoid race condition when both sides try to access device simultaneously
         // This gives the recipient time to finish setting up their tracks first
         setTimeout(() => {
-          handleJoin(callId, channelName, callType || 'audio');
+          handleJoin(callId, channelName, callType || existingCall?.callType || 'audio');
         }, 1000); // 1 second delay
       });
 
